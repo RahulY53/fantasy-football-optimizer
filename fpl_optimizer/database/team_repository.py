@@ -17,6 +17,7 @@ from fpl_optimizer.database.models import (
     UserPlayer,
     UserTeam,
 )
+from fpl_optimizer.domain.names import resolved_player_name
 from fpl_optimizer.domain.strategy import StrategyProfile
 from fpl_optimizer.domain.team import (
     CurrentTeam,
@@ -109,12 +110,17 @@ class CurrentTeamRepository:
                 & (latest.c.observed_at == PlayerSnapshot.observed_at),
             )
             .where(UserPlayer.user_team_id == row.id)
-            .order_by(Player.position, Player.web_name)
+            .order_by(Player.position, Player.display_name)
         )
         players = tuple(
             CurrentTeamPlayer(
                 player_id=player.id,
-                player=player.web_name,
+                player=resolved_player_name(
+                    player.display_name,
+                    player.first_name,
+                    player.second_name,
+                    player.web_name,
+                ),
                 position=player.position,
                 team=team.short_name,
                 purchase_price=membership.purchase_price_tenths / 10,
@@ -241,13 +247,17 @@ class CurrentTeamRepository:
             for key in ("element_in", "element_out")
             if item.get(key) is not None
         }
-        player_names = dict(
-            self.session.execute(
-                select(Player.fpl_id, Player.web_name).where(
-                    Player.fpl_id.in_(transfer_player_ids)
-                )
-            ).tuples().all()
-        )
+        player_names = {
+            player.fpl_id: resolved_player_name(
+                player.display_name,
+                player.first_name,
+                player.second_name,
+                player.web_name,
+            )
+            for player in self.session.scalars(
+                select(Player).where(Player.fpl_id.in_(transfer_player_ids))
+            )
+        }
         return PublishedTeamSummary(
             fpl_team_id=row.fpl_team_id,
             manager_name=row.manager_name or "Unknown manager",

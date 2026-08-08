@@ -17,6 +17,7 @@ from fpl_optimizer.database.models import (
     PlayerSnapshot,
     Team,
 )
+from fpl_optimizer.domain.names import player_name_search_text, resolved_player_name
 from fpl_optimizer.domain.records import BootstrapData, FixtureRecord
 
 
@@ -100,6 +101,18 @@ class FplRepository:
             player_row.web_name = player_item.web_name
             player_row.first_name = player_item.first_name
             player_row.second_name = player_item.second_name
+            player_row.full_name = resolved_player_name(
+                player_item.full_name,
+                player_item.first_name,
+                player_item.second_name,
+                player_item.web_name,
+            )
+            player_row.display_name = resolved_player_name(
+                player_item.display_name,
+                player_item.first_name,
+                player_item.second_name,
+                player_item.web_name,
+            )
             player_row.status = player_item.status
             player_row.news = player_item.news
             player_row.chance_next_round = player_item.chance_next_round
@@ -198,39 +211,58 @@ class FplRepository:
                 (latest.c.player_id == PlayerSnapshot.player_id)
                 & (latest.c.observed_at == PlayerSnapshot.observed_at),
             )
-            .order_by(PlayerSnapshot.total_points.desc(), Player.web_name)
+            .order_by(PlayerSnapshot.total_points.desc(), Player.display_name)
         )
         rows = self.session.execute(statement).all()
-        return [
-            {
-                "Player": player.web_name,
-                "Player ID": player.id,
-                "Position": player.position,
-                "Team": team.short_name,
-                "Price": metrics.price_tenths / 10,
-                "Points": metrics.total_points,
-                "Minutes": metrics.minutes,
-                "Starts": metrics.starts,
-                "Goals": metrics.goals,
-                "Assists": metrics.assists,
-                "Clean sheets": metrics.clean_sheets,
-                "Ownership %": metrics.selected_pct,
-                "Form": metrics.form,
-                "Points/game": metrics.points_per_game,
-                "BPS": metrics.bps,
-                "ICT index": metrics.ict_index,
-                "Defensive contributions": metrics.defensive_contribution,
-                "CBI": metrics.clearances_blocks_interceptions,
-                "Tackles": metrics.tackles,
-                "Recoveries": metrics.recoveries,
-                "Transfers in": metrics.transfers_in,
-                "Transfers out": metrics.transfers_out,
-                "Status": player.status,
-                "News": player.news,
-                "Updated": metrics.observed_at,
-            }
-            for player, team, metrics in rows
-        ]
+        result: list[dict[str, object]] = []
+        for player, team, metrics in rows:
+            full_name = resolved_player_name(
+                player.full_name, player.first_name, player.second_name, player.web_name
+            )
+            display_name = resolved_player_name(
+                player.display_name, player.first_name, player.second_name, player.web_name
+            )
+            result.append(
+                {
+                    "Player": display_name,
+                    "Full Name": full_name,
+                    "Display Name": display_name,
+                    "First Name": player.first_name,
+                    "Second Name": player.second_name,
+                    "Web Name": player.web_name,
+                    "Name Search": player_name_search_text(
+                        player.first_name,
+                        player.second_name,
+                        player.web_name,
+                        player.full_name,
+                    ),
+                    "Player ID": player.id,
+                    "Position": player.position,
+                    "Team": team.short_name,
+                    "Price": metrics.price_tenths / 10,
+                    "Points": metrics.total_points,
+                    "Minutes": metrics.minutes,
+                    "Starts": metrics.starts,
+                    "Goals": metrics.goals,
+                    "Assists": metrics.assists,
+                    "Clean sheets": metrics.clean_sheets,
+                    "Ownership %": metrics.selected_pct,
+                    "Form": metrics.form,
+                    "Points/game": metrics.points_per_game,
+                    "BPS": metrics.bps,
+                    "ICT index": metrics.ict_index,
+                    "Defensive contributions": metrics.defensive_contribution,
+                    "CBI": metrics.clearances_blocks_interceptions,
+                    "Tackles": metrics.tackles,
+                    "Recoveries": metrics.recoveries,
+                    "Transfers in": metrics.transfers_in,
+                    "Transfers out": metrics.transfers_out,
+                    "Status": player.status,
+                    "News": player.news,
+                    "Updated": metrics.observed_at,
+                }
+            )
+        return result
 
     def list_fixtures(self) -> list[dict[str, object]]:
         """Return fixtures with display team and gameweek names."""

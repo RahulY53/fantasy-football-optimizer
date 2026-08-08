@@ -18,6 +18,7 @@ from fpl_optimizer.database.models import (
     StrategyWeight,
     Team,
 )
+from fpl_optimizer.domain.names import resolved_player_name
 from fpl_optimizer.domain.strategy import PlayerStrategyInput, StrategyProfile
 
 
@@ -135,7 +136,12 @@ class StrategyRepository:
             inputs.append(
                 PlayerStrategyInput(
                     player_id=player_id,
-                    player=player.web_name,
+                    player=resolved_player_name(
+                        player.display_name,
+                        player.first_name,
+                        player.second_name,
+                        player.web_name,
+                    ),
                     position=player.position,
                     team=team.short_name,
                     price=snapshot.price_tenths / 10,

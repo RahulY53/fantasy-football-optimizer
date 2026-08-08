@@ -22,6 +22,7 @@ from fpl_optimizer.domain.backtesting import (
     BacktestResult,
     HistoricalOutcomeInput,
 )
+from fpl_optimizer.domain.names import resolved_player_name
 
 
 class BacktestRepository:
@@ -129,7 +130,12 @@ class BacktestRepository:
             observations.append(
                 BacktestObservation(
                     player_id=player.id,
-                    player=player.web_name,
+                    player=resolved_player_name(
+                        player.display_name,
+                        player.first_name,
+                        player.second_name,
+                        player.web_name,
+                    ),
                     position=player.position,
                     gameweek_id=gameweek.fpl_id,
                     gameweek=gameweek.name,

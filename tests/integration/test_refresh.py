@@ -45,6 +45,8 @@ def test_refresh_is_atomic_and_idempotent(tmp_path, bootstrap_payload, fixture_p
         }
         players = repository.list_players()
         fixtures = repository.list_fixtures()
-        assert players[0]["Player"] == "Playmaker"
+        assert players[0]["Player"] == "Sam Playmaker"
+        assert players[0]["Full Name"] == "Sam Playmaker"
+        assert "playmaker" in players[0]["Name Search"]
         assert fixtures[0]["Home"] == "North London"
     database.engine.dispose()

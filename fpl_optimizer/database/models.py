@@ -79,6 +79,8 @@ class Player(Base):
     web_name: Mapped[str] = mapped_column(String(100), index=True)
     first_name: Mapped[str] = mapped_column(String(100))
     second_name: Mapped[str] = mapped_column(String(100))
+    full_name: Mapped[str] = mapped_column(String(220), default="", index=True)
+    display_name: Mapped[str] = mapped_column(String(220), default="", index=True)
     status: Mapped[str] = mapped_column(String(10), index=True)
     news: Mapped[str] = mapped_column(Text, default="")
     chance_next_round: Mapped[int | None] = mapped_column(Integer, nullable=True)

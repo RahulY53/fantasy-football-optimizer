@@ -12,6 +12,8 @@ from shared import (
     require_data,
 )
 
+from fpl_optimizer.domain.names import normalize_name_query
+
 container = page_setup("Players", "👤")
 st.title("Players")
 st.caption("Official FPL data with current six-Gameweek statistical projections")
@@ -34,7 +36,7 @@ if require_data(rows, "players"):
     else:
         st.info("Generate statistical forecasts from the sidebar to add expected minutes and xPts.")
     filter_cols = st.columns([2, 1, 1, 1])
-    search = filter_cols[0].text_input("Search", placeholder="Player name")
+    search = filter_cols[0].text_input("Search", placeholder="First name, surname, or FPL web name")
     positions = filter_cols[1].multiselect(
         "Position", options=sorted(frame["Position"].dropna().unique())
     )
@@ -43,8 +45,11 @@ if require_data(rows, "players"):
 
     filtered = frame
     if search:
+        normalized_search = normalize_name_query(search)
         filtered = filtered[
-            filtered["Player"].str.contains(search, case=False, regex=False, na=False)
+            filtered["Name Search"].str.contains(
+                normalized_search, case=False, regex=False, na=False
+            )
         ]
     if positions:
         filtered = filtered[filtered["Position"].isin(positions)]
@@ -78,7 +83,7 @@ if require_data(rows, "players"):
             "Updated": st.column_config.DatetimeColumn("Updated", format="DD MMM, HH:mm"),
         },
         column_order=(
-            "Player",
+            "Full Name",
             "Position",
             "Team",
             "Price",

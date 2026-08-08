@@ -25,6 +25,7 @@ from fpl_optimizer.domain.forecasts import (
     PlayerForecastInput,
     TeamStrength,
 )
+from fpl_optimizer.domain.names import resolved_player_name
 from fpl_optimizer.domain.simulation import SimulationWeekInput
 
 
@@ -528,15 +529,28 @@ class ForecastRepository:
                 result[player_id] = tuple(weeks)
         return latest, result
 
-    def player_choices(self) -> list[tuple[int, str, str]]:
-        """Return player IDs, names, and teams for forecast selectors."""
+    def player_choices(self) -> list[tuple[int, str, str, str]]:
+        """Return player IDs, full names, teams, and positions for selectors."""
 
         result = self.session.execute(
-            select(Player.id, Player.web_name, Team.short_name)
+            select(Player, Team.short_name)
             .join(Team, Player.team_id == Team.id)
-            .order_by(Player.web_name, Team.short_name)
+            .order_by(Player.display_name, Team.short_name)
         )
-        return [(player_id, web_name, short_name) for player_id, web_name, short_name in result]
+        return [
+            (
+                player.id,
+                resolved_player_name(
+                    player.display_name,
+                    player.first_name,
+                    player.second_name,
+                    player.web_name,
+                ),
+                short_name,
+                player.position,
+            )
+            for player, short_name in result
+        ]
 
 
 def ensure_utc(value: datetime) -> datetime:

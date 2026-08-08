@@ -26,7 +26,9 @@ with container.database.session() as session:
 if latest is None:
     st.info("Generate statistical forecasts from the sidebar to explore player projections.")
 elif choices:
-    labels = {player_id: f"{name} · {team}" for player_id, name, team in choices}
+    labels = {
+        player_id: f"{name} · {team} · {position}" for player_id, name, team, position in choices
+    }
     selected_id = st.selectbox(
         "Player",
         options=list(labels),

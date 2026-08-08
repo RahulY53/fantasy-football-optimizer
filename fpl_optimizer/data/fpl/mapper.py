@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fpl_optimizer.domain.enums import FixtureStatus, Position
+from fpl_optimizer.domain.names import display_player_name, full_player_name
 from fpl_optimizer.domain.records import (
     BootstrapData,
     FixtureRecord,
@@ -67,14 +68,17 @@ def map_bootstrap(payload: Any) -> BootstrapData:
             position = POSITION_BY_TYPE[element_type]
         except KeyError as error:
             raise FplMappingError(f"Unknown element_type: {element_type}") from error
+        first_name = _str(item, "first_name", "")
+        second_name = _str(item, "second_name", "")
+        web_name = _str(item, "web_name")
         players.append(
             PlayerRecord(
                 fpl_id=_int(item, "id"),
                 team_fpl_id=_int(item, "team"),
                 position=position,
-                web_name=_str(item, "web_name"),
-                first_name=_str(item, "first_name", ""),
-                second_name=_str(item, "second_name", ""),
+                web_name=web_name,
+                first_name=first_name,
+                second_name=second_name,
                 status=_str(item, "status", "u"),
                 news=_str(item, "news", ""),
                 chance_next_round=_optional_int(item.get("chance_of_playing_next_round")),
@@ -105,6 +109,8 @@ def map_bootstrap(payload: Any) -> BootstrapData:
                 tackles=_int(item, "tackles", 0),
                 recoveries=_int(item, "recoveries", 0),
                 defensive_contribution=_int(item, "defensive_contribution", 0),
+                full_name=full_player_name(first_name, second_name, web_name),
+                display_name=display_player_name(first_name, second_name, web_name),
             )
         )
     if not teams or not gameweeks:

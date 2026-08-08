@@ -17,6 +17,8 @@ def test_map_bootstrap(bootstrap_payload) -> None:
     assert result.players[1].position is Position.MIDFIELDER
     assert result.players[1].price_tenths == 95
     assert result.players[1].selected_pct == 35.5
+    assert result.players[1].full_name == "Sam Playmaker"
+    assert result.players[1].display_name == "Sam Playmaker"
 
 
 def test_map_fixtures(fixture_payload) -> None:

@@ -72,6 +72,8 @@ class PlayerRecord:
     tackles: int = 0
     recoveries: int = 0
     defensive_contribution: int = 0
+    full_name: str = ""
+    display_name: str = ""
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,6 +4,12 @@ FPL Optimizer
 
 An open-source, local-first Fantasy Premier League (FPL) forecasting, simulation, and decision engine for power users who want reproducible, offline-capable analytics for squad selection, transfers, lineups, captaincy, and chip strategy.
 
+Player data quality now uses official full names throughout detailed tables, saved teams,
+forecast selectors, strategy outputs, and backtests. Search accepts first names, surnames, FPL web
+names, partial text, and unaccented input; team and position remain available for disambiguation.
+The identity and fallback rules are documented in
+[docs/player_name_data_quality.md](docs/player_name_data_quality.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.
