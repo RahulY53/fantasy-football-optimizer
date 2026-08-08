@@ -103,7 +103,8 @@ def available_radar_metrics(
     return tuple(
         key
         for key, definition in METRICS.items()
-        if all(record.metric(key) is not None for record in selected)
+        if definition.radar_enabled
+        and all(record.metric(key) is not None for record in selected)
         and positions.issubset(definition.supports_positions)
     )
 

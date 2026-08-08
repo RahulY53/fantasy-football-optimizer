@@ -38,9 +38,12 @@ class PlayerAnalyticsRecord:
     save_xpts: float | None
     bonus_xpts: float | None
     attacking_xpts: float | None
+    market_edge: float | None
     xpts_3gw: float | None
     xpts_5gw: float | None
     xpts_6gw: float | None
+    xpts_per_million: float | None
+    xpts_per_90: float | None
     value: float | None
     risk: float | None
     optimization_score: float | None
@@ -89,9 +92,12 @@ class PlayerAnalyticsRecord:
                 "Save xPts": self.save_xpts,
                 "Bonus xPts": self.bonus_xpts,
                 "Attacking xPts": self.attacking_xpts,
+                "Market edge": self.market_edge,
                 "3GW xPts": self.xpts_3gw,
                 "5GW xPts": self.xpts_5gw,
                 "6GW xPts": self.xpts_6gw,
+                "5GW xPts / £m": self.xpts_per_million,
+                "Next-GW xPts / 90": self.xpts_per_90,
                 "Value": self.value,
                 "Risk": self.risk,
                 "Optimization Score": self.optimization_score,
@@ -119,6 +125,10 @@ def build_player_dataset(
         player_id = _integer(player, "Player ID")
         forecast = forecast_by_id.get(player_id, {})
         score = score_by_id.get(player_id, {})
+        price = _number(player, "Price") or 0.0
+        expected_minutes = _number(forecast, "Expected minutes")
+        blended_xpts = _number(forecast, "Blended xPts")
+        xpts_5gw = _number(forecast, "5GW xPts")
         records.append(
             PlayerAnalyticsRecord(
                 player_id=player_id,
@@ -128,16 +138,16 @@ def build_player_dataset(
                 name_search=str(player["Name Search"]),
                 team=str(player["Team"]),
                 position=str(player["Position"]),
-                price=_number(player, "Price") or 0.0,
+                price=price,
                 ownership=_number(player, "Ownership %") or 0.0,
                 status=str(player["Status"]),
                 news=str(player["News"]),
                 opponent=_text(forecast, "Opponent"),
-                expected_minutes=_number(forecast, "Expected minutes"),
+                expected_minutes=expected_minutes,
                 start_probability=_number(forecast, "Start probability %"),
                 stat_xpts=_number(forecast, "Stat xPts"),
                 market_xpts=_number(forecast, "Market xPts"),
-                blended_xpts=_number(forecast, "Blended xPts"),
+                blended_xpts=blended_xpts,
                 goal_probability=_number(forecast, "Goal probability %"),
                 goal_xpts=_number(forecast, "Goal xPts"),
                 assist_xpts=_number(forecast, "Assist xPts"),
@@ -145,9 +155,16 @@ def build_player_dataset(
                 save_xpts=_number(forecast, "Save xPts"),
                 bonus_xpts=_number(forecast, "Bonus xPts"),
                 attacking_xpts=_number(forecast, "Attacking xPts"),
+                market_edge=_number(forecast, "Market edge"),
                 xpts_3gw=_number(forecast, "3GW xPts"),
-                xpts_5gw=_number(forecast, "5GW xPts"),
+                xpts_5gw=xpts_5gw,
                 xpts_6gw=_number(forecast, "6GW xPts"),
+                xpts_per_million=_ratio(xpts_5gw, price),
+                xpts_per_90=(
+                    _ratio(blended_xpts * 90.0, expected_minutes)
+                    if blended_xpts is not None
+                    else None
+                ),
                 value=_number(score, "Value"),
                 risk=_number(score, "Risk"),
                 optimization_score=_number(score, "Optimization Score"),
@@ -197,3 +214,9 @@ def _number(row: dict[str, object], key: str) -> float | None:
 def _text(row: dict[str, object], key: str) -> str | None:
     value = row.get(key)
     return str(value) if value is not None else None
+
+
+def _ratio(numerator: float | None, denominator: float | None) -> float | None:
+    if numerator is None or denominator is None or denominator <= 0:
+        return None
+    return numerator / denominator

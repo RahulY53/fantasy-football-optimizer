@@ -18,6 +18,7 @@ class MetricDefinition:
     supports_positions: tuple[str, ...] = ("GK", "DEF", "MID", "FWD")
     normalization_method: str = "percentile"
     radar_label: str | None = None
+    radar_enabled: bool = True
 
     @property
     def comparison_label(self) -> str:
@@ -155,6 +156,15 @@ METRICS: dict[str, MetricDefinition] = {
             supports_positions=("DEF", "MID", "FWD"),
         ),
         MetricDefinition(
+            "market_edge",
+            "Market Edge",
+            "Market xPts minus statistical xPts for the next Gameweek.",
+            "pts",
+            "%+.1f",
+            True,
+            radar_enabled=False,
+        ),
+        MetricDefinition(
             "xpts_3gw", "3GW xPts", "Expected points over three Gameweeks.", "pts", "%.1f", True
         ),
         MetricDefinition(
@@ -162,6 +172,22 @@ METRICS: dict[str, MetricDefinition] = {
         ),
         MetricDefinition(
             "xpts_6gw", "6GW xPts", "Expected points over six Gameweeks.", "pts", "%.1f", True
+        ),
+        MetricDefinition(
+            "xpts_per_million",
+            "5GW xPts / £m",
+            "Five-Gameweek expected points divided by current price.",
+            "pts/£m",
+            "%.2f",
+            True,
+        ),
+        MetricDefinition(
+            "xpts_per_90",
+            "Next-GW xPts / 90",
+            "Next-Gameweek blended expected points scaled to 90 expected minutes.",
+            "pts/90",
+            "%.2f",
+            True,
         ),
         MetricDefinition(
             "value", "Value", "Forecast value relative to price.", "score", "%.1f", True

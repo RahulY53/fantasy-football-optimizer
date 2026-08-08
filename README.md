@@ -20,6 +20,11 @@ and position-aware Plotly radar charts for two to five players. Radar scores use
 comparison universe and retain raw values in hover details. See
 [docs/player_analytics_compare.md](docs/player_analytics_compare.md).
 
+The analytics 2×2 matrix plots any two available raw metrics, supports multiple player populations
+and reference methods, and explains each quadrant with ranked candidates. Seven presets cover
+value, threat, minutes, ownership, and market/model disagreement. See
+[docs/player_matrix.md](docs/player_matrix.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.

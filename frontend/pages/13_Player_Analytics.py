@@ -6,6 +6,12 @@ from typing import cast
 
 import pandas as pd
 import streamlit as st
+from components.matrix_chart import (
+    ColorMode,
+    LabelMode,
+    SizeMode,
+    player_matrix_figure,
+)
 from components.player_filters import render_player_filters
 from components.radar_chart import player_radar_figure
 from shared import format_timestamp, load_player_analytics, page_setup, require_data
@@ -19,6 +25,14 @@ from fpl_optimizer.analytics.comparison import (
     radar_profiles,
 )
 from fpl_optimizer.analytics.filters import filter_players
+from fpl_optimizer.analytics.matrix import (
+    MATRIX_PRESETS,
+    REFERENCE_METHODS,
+    ReferenceMethod,
+    available_matrix_metrics,
+    available_matrix_presets,
+    build_matrix,
+)
 from fpl_optimizer.analytics.metrics import metric_definition
 from fpl_optimizer.database.forecast_repository import ForecastRepository
 from fpl_optimizer.database.repositories import FplRepository
@@ -37,12 +51,15 @@ def _column_config() -> dict[str, object]:
         "Save xPts": st.column_config.NumberColumn(format="%.2f"),
         "Bonus xPts": st.column_config.NumberColumn(format="%.2f"),
         "Attacking xPts": st.column_config.NumberColumn(format="%.2f"),
+        "Market edge": st.column_config.NumberColumn(format="%+.1f"),
         "Stat xPts": st.column_config.NumberColumn(format="%.1f"),
         "Market xPts": st.column_config.NumberColumn(format="%.1f"),
         "Blended xPts": st.column_config.NumberColumn(format="%.1f"),
         "3GW xPts": st.column_config.NumberColumn(format="%.1f"),
         "5GW xPts": st.column_config.NumberColumn(format="%.1f"),
         "6GW xPts": st.column_config.NumberColumn(format="%.1f"),
+        "5GW xPts / £m": st.column_config.NumberColumn(format="%.2f"),
+        "Next-GW xPts / 90": st.column_config.NumberColumn(format="%.2f"),
         "Value": st.column_config.NumberColumn(format="%.1f"),
         "Risk": st.column_config.NumberColumn(format="%.0f/100"),
         "Optimization Score": st.column_config.ProgressColumn(
@@ -84,7 +101,10 @@ EXPLORER_COLUMNS = (
     "Attacking xPts",
     "Stat xPts",
     "Market xPts",
+    "Market edge",
     "6GW xPts",
+    "5GW xPts / £m",
+    "Next-GW xPts / 90",
     "Points",
     "Form",
     "Points/game",
@@ -147,7 +167,7 @@ selected_ids = st.multiselect(
 )
 selected = tuple(record for record in records if record.player_id in selected_ids)
 
-explorer_tab, compare_tab = st.tabs(["Explorer", "Compare"])
+explorer_tab, compare_tab, matrix_tab = st.tabs(["Explorer", "Compare", "2×2 Matrix"])
 
 with explorer_tab:
     with st.expander("Choose table columns"):
@@ -257,3 +277,264 @@ with compare_tab:
                             f"**{definition.comparison_label}** — {definition.description} "
                             f"Raw unit: `{definition.unit}`."
                         )
+
+with matrix_tab:
+    st.subheader("Interactive 2×2 player matrix")
+    st.caption(
+        "Choose a population and plot any two available metrics. All normal player filters "
+        "continue to apply."
+    )
+    selection_mode = st.radio(
+        "Players to plot",
+        (
+            "Filtered players",
+            "Selected players",
+            "Position",
+            "Team",
+            "Current squad",
+            "Optimizer candidates",
+        ),
+        horizontal=True,
+        key="matrix_selection_mode",
+    )
+
+    matrix_records = filtered_records
+    if selection_mode == "Selected players":
+        matrix_records = tuple(
+            record for record in filtered_records if record.player_id in selected_ids
+        )
+    elif selection_mode == "Position":
+        position_options = sorted({record.position for record in filtered_records})
+        if position_options:
+            selected_position = st.selectbox(
+                "Matrix position",
+                position_options,
+                key="matrix_population_position",
+            )
+            matrix_records = tuple(
+                record for record in filtered_records if record.position == selected_position
+            )
+        else:
+            matrix_records = ()
+    elif selection_mode == "Team":
+        team_options = sorted({record.team for record in filtered_records})
+        selected_matrix_teams = st.multiselect(
+            "Matrix teams",
+            team_options,
+            key="matrix_population_teams",
+        )
+        matrix_records = tuple(
+            record for record in filtered_records if record.team in selected_matrix_teams
+        )
+    elif selection_mode == "Current squad":
+        current_team = container.team.get()
+        current_ids = (
+            {player.player_id for player in current_team.players} if current_team else set()
+        )
+        matrix_records = tuple(
+            record for record in filtered_records if record.player_id in current_ids
+        )
+        if current_team is None:
+            st.info("Save or import My Team before using the Current squad matrix mode.")
+    elif selection_mode == "Optimizer candidates":
+        candidate_count = st.slider(
+            "Top optimization candidates",
+            min_value=5,
+            max_value=min(100, max(5, len(filtered_records))),
+            value=min(30, max(5, len(filtered_records))),
+            step=5,
+            key="matrix_candidate_count",
+        )
+        ranked_candidates = sorted(
+            (record for record in filtered_records if record.optimization_score is not None),
+            key=lambda record: record.optimization_score or 0.0,
+            reverse=True,
+        )
+        matrix_records = tuple(ranked_candidates[:candidate_count])
+        if not ranked_candidates:
+            st.info("Generate forecasts to calculate optimization candidates.")
+
+    if len(matrix_records) < 2:
+        st.info("Choose a matrix population containing at least two players.")
+    else:
+        st.write(f"Plot population: **{len(matrix_records)} players**")
+        available_metrics = available_matrix_metrics(matrix_records)
+        available_presets = available_matrix_presets(matrix_records)
+        preset_keys = ["custom", *(preset.key for preset in available_presets)]
+        current_preset = st.session_state.get("matrix_preset")
+        if current_preset not in preset_keys:
+            st.session_state["matrix_preset"] = (
+                "value_map" if "value_map" in preset_keys else "custom"
+            )
+        preset_key = st.selectbox(
+            "Analysis view",
+            preset_keys,
+            format_func=lambda key: "Custom axes" if key == "custom" else MATRIX_PRESETS[key].label,
+            key="matrix_preset",
+        )
+
+        previous_preset = st.session_state.get("matrix_applied_preset")
+        if preset_key != "custom" and preset_key != previous_preset:
+            selected_preset = MATRIX_PRESETS[preset_key]
+            st.session_state["matrix_x_axis"] = selected_preset.x_metric
+            st.session_state["matrix_y_axis"] = selected_preset.y_metric
+        st.session_state["matrix_applied_preset"] = preset_key
+
+        default_x = "price" if "price" in available_metrics else available_metrics[0]
+        default_y = (
+            "xpts_5gw"
+            if "xpts_5gw" in available_metrics
+            else next(key for key in available_metrics if key != default_x)
+        )
+        if st.session_state.get("matrix_x_axis") not in available_metrics:
+            st.session_state["matrix_x_axis"] = default_x
+        if st.session_state.get("matrix_y_axis") not in available_metrics:
+            st.session_state["matrix_y_axis"] = default_y
+
+        axis_columns = st.columns(2)
+        x_key = axis_columns[0].selectbox(
+            "X axis",
+            available_metrics,
+            format_func=lambda key: metric_definition(key).label,
+            key="matrix_x_axis",
+        )
+        y_key = axis_columns[1].selectbox(
+            "Y axis",
+            available_metrics,
+            format_func=lambda key: metric_definition(key).label,
+            key="matrix_y_axis",
+        )
+        matching_preset = (
+            MATRIX_PRESETS[preset_key]
+            if preset_key != "custom"
+            and MATRIX_PRESETS[preset_key].x_metric == x_key
+            and MATRIX_PRESETS[preset_key].y_metric == y_key
+            else None
+        )
+        if matching_preset:
+            st.info(matching_preset.description)
+
+        reference_columns = st.columns(3)
+        reference_method = reference_columns[0].selectbox(
+            "Reference lines",
+            REFERENCE_METHODS,
+            key="matrix_reference_method",
+        )
+        reference_position = None
+        custom_x = custom_y = None
+        if reference_method == "Position Median":
+            reference_position = reference_columns[1].selectbox(
+                "Reference position",
+                sorted({record.position for record in matrix_records}),
+                key="matrix_reference_position",
+            )
+        elif reference_method == "Custom":
+            custom_x = reference_columns[1].number_input(
+                "Custom X reference",
+                value=float(
+                    pd.Series(
+                        [
+                            value
+                            for record in matrix_records
+                            if (value := record.metric(x_key)) is not None
+                        ]
+                    ).median()
+                ),
+                key="matrix_custom_x",
+            )
+            custom_y = reference_columns[2].number_input(
+                "Custom Y reference",
+                value=float(
+                    pd.Series(
+                        [
+                            value
+                            for record in matrix_records
+                            if (value := record.metric(y_key)) is not None
+                        ]
+                    ).median()
+                ),
+                key="matrix_custom_y",
+            )
+
+        encoding_columns = st.columns(4)
+        color_mode = encoding_columns[0].selectbox(
+            "Point color",
+            ("None", "Position", "Team", "Risk category"),
+            index=1,
+            key="matrix_color_mode",
+        )
+        size_mode = encoding_columns[1].selectbox(
+            "Point size",
+            ("Fixed", "Price", "Ownership", "Blended xPts", "Optimization Score"),
+            key="matrix_size_mode",
+        )
+        label_mode = encoding_columns[2].selectbox(
+            "Player labels",
+            ("Selected names", "Top N", "All names", "Hide names"),
+            key="matrix_label_mode",
+        )
+        top_n = encoding_columns[3].number_input(
+            "Top labels",
+            min_value=1,
+            max_value=30,
+            value=10,
+            step=1,
+            disabled=label_mode != "Top N",
+            key="matrix_top_labels",
+        )
+
+        try:
+            analysis = build_matrix(
+                matrix_records,
+                x_key,
+                y_key,
+                cast(ReferenceMethod, reference_method),
+                custom_x=custom_x,
+                custom_y=custom_y,
+                reference_position=reference_position,
+                labels=matching_preset.quadrant_labels if matching_preset else None,
+                diagonal=matching_preset.diagonal if matching_preset else False,
+            )
+        except ValueError as error:
+            st.warning(str(error))
+        else:
+            plotted_ids = {point.player_id for point in analysis.points}
+            excluded_count = len(matrix_records) - len(analysis.points)
+            st.plotly_chart(
+                player_matrix_figure(
+                    analysis,
+                    color_mode=cast(ColorMode, color_mode),
+                    size_mode=cast(SizeMode, size_mode),
+                    label_mode=cast(LabelMode, label_mode),
+                    highlighted_ids=frozenset(plotted_ids.intersection(selected_ids)),
+                    top_n=int(top_n),
+                ),
+                width="stretch",
+                config={"displaylogo": False, "responsive": True},
+            )
+            exclusion_note = (
+                f" · {excluded_count} players omitted because an axis value is unavailable"
+                if excluded_count
+                else ""
+            )
+            diagonal_note = " · dotted line shows Market = Model" if analysis.diagonal else ""
+            st.caption(
+                f"Raw axes: **{analysis.x_metric.label}** ({analysis.x_metric.unit}) and "
+                f"**{analysis.y_metric.label}** ({analysis.y_metric.unit}) · dashed references "
+                f"use {analysis.reference_method}{diagonal_note}{exclusion_note}."
+            )
+
+            st.subheader("Quadrant insights")
+            insight_columns = st.columns(2)
+            for index, insight in enumerate(analysis.insights):
+                with insight_columns[index % 2]:
+                    st.markdown(f"#### {insight.label}")
+                    if not insight.players:
+                        st.caption("No players in this quadrant.")
+                    for rank, point in enumerate(insight.players[:5], start=1):
+                        score = (
+                            f"score {point.optimization_score:.1f}"
+                            if point.optimization_score is not None
+                            else "score unavailable"
+                        )
+                        st.write(f"{rank}. **{point.full_name}** · {point.team} · {score}")
