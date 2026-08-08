@@ -11,6 +11,15 @@ from fpl_optimizer.analytics.comparison import (
     radar_profiles,
 )
 from fpl_optimizer.analytics.filters import PlayerFilterSpec, filter_players
+from fpl_optimizer.analytics.forecast_comparison import (
+    FORECAST_HORIZONS,
+    ForecastComparison,
+    ForecastPoint,
+    ForecastSeries,
+    build_forecast_comparison,
+    fixture_comparison_rows,
+    forecast_export_rows,
+)
 from fpl_optimizer.analytics.matrix import (
     MATRIX_PRESETS,
     REFERENCE_METHODS,
@@ -33,6 +42,10 @@ __all__ = [
     "REFERENCE_METHODS",
     "UNIVERSE_OPTIONS",
     "ComparisonUniverse",
+    "FORECAST_HORIZONS",
+    "ForecastComparison",
+    "ForecastPoint",
+    "ForecastSeries",
     "MetricDefinition",
     "MatrixAnalysis",
     "MatrixPoint",
@@ -48,10 +61,13 @@ __all__ = [
     "available_matrix_presets",
     "available_radar_metrics",
     "build_player_dataset",
+    "build_forecast_comparison",
     "build_matrix",
     "comparison_rows",
     "default_radar_metrics",
     "filter_players",
+    "fixture_comparison_rows",
+    "forecast_export_rows",
     "metric_definition",
     "radar_profiles",
 ]

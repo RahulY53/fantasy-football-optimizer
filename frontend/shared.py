@@ -205,6 +205,23 @@ def load_player_analytics(container: AppContainer) -> tuple[PlayerAnalyticsRecor
     )
 
 
+def load_player_forecast_details(
+    container: AppContainer, player_ids: set[int]
+) -> dict[int, list[dict[str, object]]]:
+    """Load selected-player Gameweek forecasts through a freshness-keyed cache."""
+
+    with container.database.session() as session:
+        forecasts = ForecastRepository(session)
+        forecast_updated = forecasts.latest_prediction_at()
+        market_updated = forecasts.latest_market_prediction_at()
+    return _cached_player_forecast_details(
+        tuple(sorted(player_ids)),
+        forecast_updated.isoformat() if forecast_updated else "",
+        market_updated.isoformat() if market_updated else "",
+        market_weight(),
+    )
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _cached_player_analytics(
     players_updated: str,
@@ -228,6 +245,22 @@ def _cached_player_analytics(
         weights={str(key): int(weight) for key, weight in value["weights"].items()},
     )
     return get_container().analytics.dataset(profile, selected_market_weight)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_player_forecast_details(
+    player_ids: tuple[int, ...],
+    forecast_updated: str,
+    market_updated: str,
+    selected_market_weight: float,
+) -> dict[int, list[dict[str, object]]]:
+    """Cache one batch read of persisted per-Gameweek forecast details."""
+
+    del forecast_updated, market_updated
+    with get_container().database.session() as session:
+        return ForecastRepository(session).player_comparison_details(
+            set(player_ids), selected_market_weight
+        )
 
 
 def require_data(rows: list[Any], noun: str) -> bool:

@@ -25,6 +25,10 @@ and reference methods, and explains each quadrant with ranked candidates. Seven 
 value, threat, minutes, ownership, and market/model disagreement. See
 [docs/player_matrix.md](docs/player_matrix.md).
 
+Selected players can also be compared across future fixtures with weekly and cumulative blended
+xPts curves, separate attacking and defensive fixture difficulty, and local CSV exports. See
+[docs/player_forecast_analytics.md](docs/player_forecast_analytics.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.

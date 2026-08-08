@@ -338,38 +338,83 @@ class ForecastRepository:
     def player_details(self, player_id: int, market_weight: float = 0.3) -> list[dict[str, object]]:
         """Return component-level current-run forecasts for one player."""
 
+        return self.player_comparison_details({player_id}, market_weight).get(player_id, [])
+
+    def player_comparison_details(
+        self, player_ids: set[int], market_weight: float = 0.3
+    ) -> dict[int, list[dict[str, object]]]:
+        """Return aligned current-run Gameweek forecasts for selected players."""
+
+        if not 0.0 <= market_weight <= 1.0:
+            raise ValueError("Market weight must be between 0 and 1")
+        if not player_ids:
+            return {}
+
         latest = self.latest_prediction_at()
         if latest is None:
-            return []
+            return {}
         statement = (
-            select(PlayerForecast, Gameweek)
+            select(PlayerForecast, Gameweek, Player)
             .join(Gameweek, PlayerForecast.gameweek_id == Gameweek.id)
+            .join(Player, PlayerForecast.player_id == Player.id)
             .where(
-                PlayerForecast.player_id == player_id,
+                PlayerForecast.player_id.in_(player_ids),
                 PlayerForecast.prediction_at == latest,
             )
-            .order_by(Gameweek.fpl_id)
+            .order_by(PlayerForecast.player_id, Gameweek.fpl_id)
         )
         market_latest = self.session.scalar(select(func.max(PlayerMarketForecast.prediction_at)))
-        market_by_gameweek: dict[int, PlayerMarketForecast] = {}
+        market_by_key: dict[tuple[int, int], PlayerMarketForecast] = {}
         if market_latest is not None:
-            market_by_gameweek = {
-                forecast.gameweek_id: forecast
+            market_by_key = {
+                (forecast.player_id, forecast.gameweek_id): forecast
                 for forecast in self.session.scalars(
                     select(PlayerMarketForecast).where(
-                        PlayerMarketForecast.player_id == player_id,
+                        PlayerMarketForecast.player_id.in_(player_ids),
                         PlayerMarketForecast.prediction_at == market_latest,
                     )
                 )
             }
-        details: list[dict[str, object]] = []
-        for forecast, gameweek in self.session.execute(statement):
-            market = market_by_gameweek.get(forecast.gameweek_id)
-            details.append(
+
+        forecast_rows = list(self.session.execute(statement))
+        gameweek_ids = {gameweek.id for _, gameweek, _ in forecast_rows}
+        teams = {team.id: team for team in self.session.scalars(select(Team))}
+        fixtures_by_gameweek: dict[int, list[Fixture]] = {}
+        for fixture in self.session.scalars(
+            select(Fixture).where(Fixture.gameweek_id.in_(gameweek_ids))
+        ):
+            if fixture.gameweek_id is not None:
+                fixtures_by_gameweek.setdefault(fixture.gameweek_id, []).append(fixture)
+        attack_strengths = [
+            float(value)
+            for team in teams.values()
+            for value in (team.strength_attack_home, team.strength_attack_away)
+        ]
+        defence_strengths = [
+            float(value)
+            for team in teams.values()
+            for value in (team.strength_defence_home, team.strength_defence_away)
+        ]
+
+        details: dict[int, list[dict[str, object]]] = {}
+        for forecast, gameweek, player in forecast_rows:
+            market = market_by_key.get((forecast.player_id, forecast.gameweek_id))
+            attacking_difficulty, defensive_difficulty = _fixture_strengths(
+                player.team_id,
+                fixtures_by_gameweek.get(gameweek.id, []),
+                teams,
+                attack_strengths,
+                defence_strengths,
+            )
+            details.setdefault(forecast.player_id, []).append(
                 {
+                    "Gameweek ID": gameweek.id,
+                    "Gameweek number": gameweek.fpl_id,
                     "Gameweek": gameweek.name,
                     "Opponent": forecast.opponent_summary,
                     "Fixtures": forecast.fixture_count,
+                    "Attacking difficulty": attacking_difficulty,
+                    "Defensive difficulty": defensive_difficulty,
                     "Expected minutes": forecast.expected_minutes,
                     "Appearance": forecast.appearance_xpts,
                     "Goals": forecast.goal_xpts,
@@ -392,6 +437,7 @@ class ForecastRepository:
                     "Explanation": json.loads(forecast.component_json),
                     "Market explanation": (json.loads(market.component_json) if market else None),
                     "Input cutoff": forecast.input_cutoff_at,
+                    "Forecasted": latest,
                 }
             )
         return details
@@ -604,3 +650,48 @@ def _blend(statistical: float, market: float | None, market_weight: float) -> fl
 
 def _blend_component(statistical: float, market: float | None, market_weight: float) -> float:
     return _blend(statistical, market, market_weight)
+
+
+def _fixture_strengths(
+    team_id: int,
+    fixtures: list[Fixture],
+    teams: dict[int, Team],
+    attack_strengths: list[float],
+    defence_strengths: list[float],
+) -> tuple[float | None, float | None]:
+    """Return average 1–5 attacking and defensive difficulty for a Gameweek."""
+
+    attacking: list[float] = []
+    defensive: list[float] = []
+    for fixture in fixtures:
+        if fixture.home_team_id == team_id:
+            opponent = teams.get(fixture.away_team_id)
+            if opponent is not None:
+                attacking.append(
+                    _strength_rating(opponent.strength_defence_away, defence_strengths)
+                )
+                defensive.append(
+                    _strength_rating(opponent.strength_attack_away, attack_strengths)
+                )
+        elif fixture.away_team_id == team_id:
+            opponent = teams.get(fixture.home_team_id)
+            if opponent is not None:
+                attacking.append(
+                    _strength_rating(opponent.strength_defence_home, defence_strengths)
+                )
+                defensive.append(
+                    _strength_rating(opponent.strength_attack_home, attack_strengths)
+                )
+    if not attacking or not defensive:
+        return None, None
+    return sum(attacking) / len(attacking), sum(defensive) / len(defensive)
+
+
+def _strength_rating(value: int, universe: list[float]) -> float:
+    """Scale an official FPL team-strength value to a transparent 1–5 rating."""
+
+    lowest = min(universe)
+    highest = max(universe)
+    if highest == lowest:
+        return 3.0
+    return 1.0 + 4.0 * (float(value) - lowest) / (highest - lowest)

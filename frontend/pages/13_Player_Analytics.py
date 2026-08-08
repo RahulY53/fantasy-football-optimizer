@@ -6,6 +6,7 @@ from typing import cast
 
 import pandas as pd
 import streamlit as st
+from components.forecast_chart import ForecastChartMode, player_forecast_figure
 from components.matrix_chart import (
     ColorMode,
     LabelMode,
@@ -14,7 +15,13 @@ from components.matrix_chart import (
 )
 from components.player_filters import render_player_filters
 from components.radar_chart import player_radar_figure
-from shared import format_timestamp, load_player_analytics, page_setup, require_data
+from shared import (
+    format_timestamp,
+    load_player_analytics,
+    load_player_forecast_details,
+    page_setup,
+    require_data,
+)
 
 from fpl_optimizer.analytics.comparison import (
     UNIVERSE_OPTIONS,
@@ -25,6 +32,12 @@ from fpl_optimizer.analytics.comparison import (
     radar_profiles,
 )
 from fpl_optimizer.analytics.filters import filter_players
+from fpl_optimizer.analytics.forecast_comparison import (
+    FORECAST_HORIZONS,
+    build_forecast_comparison,
+    fixture_comparison_rows,
+    forecast_export_rows,
+)
 from fpl_optimizer.analytics.matrix import (
     MATRIX_PRESETS,
     REFERENCE_METHODS,
@@ -167,7 +180,9 @@ selected_ids = st.multiselect(
 )
 selected = tuple(record for record in records if record.player_id in selected_ids)
 
-explorer_tab, compare_tab, matrix_tab = st.tabs(["Explorer", "Compare", "2×2 Matrix"])
+explorer_tab, compare_tab, matrix_tab, forecast_tab = st.tabs(
+    ["Explorer", "Compare", "2×2 Matrix", "Forecast"]
+)
 
 with explorer_tab:
     with st.expander("Choose table columns"):
@@ -189,6 +204,20 @@ with explorer_tab:
             column_config=_column_config(),
         )
         st.caption("Select column headers to sort the current filtered results.")
+        export_columns = list(
+            dict.fromkeys(
+                ("Player ID", *EXPLORER_COLUMNS, "Web Name", "News", "Updated")
+            )
+        )
+        st.download_button(
+            "Download filtered players (CSV)",
+            frame[[column for column in export_columns if column in frame]].to_csv(
+                index=False
+            ),
+            file_name="fpl-player-analytics.csv",
+            mime="text/csv",
+            key="analytics_filtered_csv",
+        )
 
 with compare_tab:
     if len(selected) < 2:
@@ -205,6 +234,13 @@ with compare_tab:
         st.caption(
             "Table values use their original units. Missing market-only values are omitted rather "
             "than estimated."
+        )
+        st.download_button(
+            "Download comparison (CSV)",
+            comparison_frame.to_csv(index=False),
+            file_name="fpl-player-comparison.csv",
+            mime="text/csv",
+            key="analytics_comparison_csv",
         )
 
         st.subheader("Radar comparison")
@@ -538,3 +574,64 @@ with matrix_tab:
                             else "score unavailable"
                         )
                         st.write(f"{rank}. **{point.full_name}** · {point.team} · {score}")
+
+with forecast_tab:
+    st.subheader("Future fixture and forecast comparison")
+    if len(selected) < 2:
+        st.info("Choose at least two players above to compare their future forecasts.")
+    else:
+        horizon = st.radio(
+            "Forecast horizon",
+            FORECAST_HORIZONS,
+            index=2,
+            format_func=lambda weeks: f"Next {weeks} GW" if weeks == 1 else f"Next {weeks} GWs",
+            horizontal=True,
+            key="analytics_forecast_horizon",
+        )
+        forecast_details = load_player_forecast_details(
+            container, {record.player_id for record in selected}
+        )
+        comparison = build_forecast_comparison(selected, forecast_details, int(horizon))
+        if len(comparison.series) < 2:
+            st.info("Generate advanced forecasts to unlock future player comparisons.")
+        else:
+            st.subheader("Fixture comparison")
+            fixture_frame = pd.DataFrame(fixture_comparison_rows(comparison))
+            st.dataframe(fixture_frame, hide_index=True, width="stretch")
+            st.caption(
+                "A = attacking difficulty from the opponent's defensive strength; D = defensive "
+                "difficulty from the opponent's attacking strength. Ratings use the current "
+                "official FPL team-strength universe: 1 is easier and 5 is harder."
+            )
+
+            chart_mode = st.radio(
+                "Forecast view",
+                ("Weekly xPts", "Cumulative xPts"),
+                horizontal=True,
+                key="analytics_forecast_chart_mode",
+            )
+            st.plotly_chart(
+                player_forecast_figure(comparison, cast(ForecastChartMode, chart_mode)),
+                width="stretch",
+                config={"displaylogo": False, "responsive": True},
+            )
+            horizon_label = "–".join(comparison.gameweeks)
+            freshness = (
+                format_timestamp(comparison.forecasted_at)
+                if comparison.forecasted_at is not None
+                else "unknown"
+            )
+            st.caption(
+                f"Raw blended expected points · horizon **{horizon_label}** · comparison universe "
+                f"**{len(comparison.series)} selected players** · forecast updated "
+                f"**{freshness}**. "
+                "Hover for statistical, market, minutes, opponent, and confidence details."
+            )
+            forecast_frame = pd.DataFrame(forecast_export_rows(comparison))
+            st.download_button(
+                "Download forecast comparison (CSV)",
+                forecast_frame.to_csv(index=False),
+                file_name="fpl-forecast-comparison.csv",
+                mime="text/csv",
+                key="analytics_forecast_csv",
+            )
