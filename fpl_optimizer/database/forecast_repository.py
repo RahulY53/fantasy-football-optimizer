@@ -253,6 +253,7 @@ class ForecastRepository:
         for player_id, rows in grouped.items():
             forecasts = [row[0] for row in rows]
             first = forecasts[0]
+            first_explanation = json.loads(first.component_json)
             market_forecasts = [
                 market_by_key.get((item.player_id, item.gameweek_id)) for item in forecasts
             ]
@@ -266,10 +267,16 @@ class ForecastRepository:
                     "Player ID": player_id,
                     "Opponent": first.opponent_summary,
                     "Expected minutes": first.expected_minutes,
+                    "Start probability %": float(first_explanation.get("p_start", 0.0)) * 100.0,
                     "Stat xPts": first.stat_xpts,
                     "Market xPts": first_market.market_xpts if first_market else None,
                     "Goalscorer probability": (
                         first_market.goalscorer_probability if first_market else None
+                    ),
+                    "Goal probability %": (
+                        first_market.goalscorer_probability * 100.0
+                        if first_market and first_market.goalscorer_probability is not None
+                        else None
                     ),
                     "Blended xPts": blended[0],
                     "Market edge": (
@@ -282,6 +289,31 @@ class ForecastRepository:
                             if first_market
                             else None
                         ),
+                        market_weight,
+                    ),
+                    "Goal xPts": _blend_component(
+                        first.goal_xpts,
+                        first_market.goal_xpts if first_market else None,
+                        market_weight,
+                    ),
+                    "Assist xPts": _blend_component(
+                        first.assist_xpts,
+                        first_market.assist_xpts if first_market else None,
+                        market_weight,
+                    ),
+                    "Clean sheet xPts": _blend_component(
+                        first.clean_sheet_xpts,
+                        first_market.clean_sheet_xpts if first_market else None,
+                        market_weight,
+                    ),
+                    "Save xPts": _blend_component(
+                        first.save_xpts,
+                        first_market.save_xpts if first_market else None,
+                        market_weight,
+                    ),
+                    "Bonus xPts": _blend_component(
+                        first.bonus_xpts,
+                        first_market.bonus_xpts if first_market else None,
                         market_weight,
                     ),
                     "Defensive contribution xPts": _blend(

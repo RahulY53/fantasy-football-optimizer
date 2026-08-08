@@ -83,6 +83,11 @@ def test_forecast_handles_double_and_blank_gameweeks(
         assert details[2]["Opponent"] == "Blank"
         assert details[2]["Stat xPts"] == 0
         assert "Defensive contribution xPts" in summaries[0]
+        assert 0 <= summaries[0]["Start probability %"] <= 100
+        assert summaries[0]["Goal xPts"] >= 0
+        assert summaries[0]["Assist xPts"] >= 0
+        assert summaries[0]["Clean sheet xPts"] >= 0
+        assert summaries[0]["Bonus xPts"] >= 0
         assert any(
             row["Defensive contribution"] > 0
             for summary in summaries

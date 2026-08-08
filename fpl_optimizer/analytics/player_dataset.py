@@ -27,9 +27,17 @@ class PlayerAnalyticsRecord:
     news: str
     opponent: str | None
     expected_minutes: float | None
+    start_probability: float | None
     stat_xpts: float | None
     market_xpts: float | None
     blended_xpts: float | None
+    goal_probability: float | None
+    goal_xpts: float | None
+    assist_xpts: float | None
+    clean_sheet_xpts: float | None
+    save_xpts: float | None
+    bonus_xpts: float | None
+    attacking_xpts: float | None
     xpts_3gw: float | None
     xpts_5gw: float | None
     xpts_6gw: float | None
@@ -70,9 +78,17 @@ class PlayerAnalyticsRecord:
                 "News": self.news,
                 "Opponent": self.opponent,
                 "Expected minutes": self.expected_minutes,
+                "Start probability %": self.start_probability,
                 "Stat xPts": self.stat_xpts,
                 "Market xPts": self.market_xpts,
                 "Blended xPts": self.blended_xpts,
+                "Goal probability %": self.goal_probability,
+                "Goal xPts": self.goal_xpts,
+                "Assist xPts": self.assist_xpts,
+                "Clean sheet xPts": self.clean_sheet_xpts,
+                "Save xPts": self.save_xpts,
+                "Bonus xPts": self.bonus_xpts,
+                "Attacking xPts": self.attacking_xpts,
                 "3GW xPts": self.xpts_3gw,
                 "5GW xPts": self.xpts_5gw,
                 "6GW xPts": self.xpts_6gw,
@@ -118,9 +134,17 @@ def build_player_dataset(
                 news=str(player["News"]),
                 opponent=_text(forecast, "Opponent"),
                 expected_minutes=_number(forecast, "Expected minutes"),
+                start_probability=_number(forecast, "Start probability %"),
                 stat_xpts=_number(forecast, "Stat xPts"),
                 market_xpts=_number(forecast, "Market xPts"),
                 blended_xpts=_number(forecast, "Blended xPts"),
+                goal_probability=_number(forecast, "Goal probability %"),
+                goal_xpts=_number(forecast, "Goal xPts"),
+                assist_xpts=_number(forecast, "Assist xPts"),
+                clean_sheet_xpts=_number(forecast, "Clean sheet xPts"),
+                save_xpts=_number(forecast, "Save xPts"),
+                bonus_xpts=_number(forecast, "Bonus xPts"),
+                attacking_xpts=_number(forecast, "Attacking xPts"),
                 xpts_3gw=_number(forecast, "3GW xPts"),
                 xpts_5gw=_number(forecast, "5GW xPts"),
                 xpts_6gw=_number(forecast, "6GW xPts"),

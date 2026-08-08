@@ -15,6 +15,11 @@ one centralized metric registry. Team, position, price, ownership, expected-minu
 risk, and strategy-score filters work together without rerunning forecast or optimization models.
 See [docs/player_analytics_foundation.md](docs/player_analytics_foundation.md).
 
+The dedicated Player Analytics page adds configurable player exploration, raw comparison tables,
+and position-aware Plotly radar charts for two to five players. Radar scores use a selectable
+comparison universe and retain raw values in hover details. See
+[docs/player_analytics_compare.md](docs/player_analytics_compare.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.

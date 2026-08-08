@@ -19,11 +19,30 @@ class MetricDefinition:
     normalization_method: str = "percentile"
     radar_label: str | None = None
 
+    @property
+    def comparison_label(self) -> str:
+        """Return the favorable-direction label used by normalized charts."""
+
+        return self.radar_label or self.label
+
+    def format_value(self, value: float | None) -> str:
+        """Format one raw value using the registry's display convention."""
+
+        return "Unavailable" if value is None else self.format % value
+
 
 METRICS: dict[str, MetricDefinition] = {
     item.key: item
     for item in (
-        MetricDefinition("price", "Price", "Current FPL purchase price.", "£m", "£%.1fm", False),
+        MetricDefinition(
+            "price",
+            "Price",
+            "Current FPL purchase price.",
+            "£m",
+            "£%.1fm",
+            False,
+            radar_label="Affordability",
+        ),
         MetricDefinition(
             "ownership",
             "Ownership",
@@ -31,6 +50,7 @@ METRICS: dict[str, MetricDefinition] = {
             "%",
             "%.1f%%",
             False,
+            radar_label="Differential Appeal",
         ),
         MetricDefinition(
             "expected_minutes",
@@ -38,6 +58,14 @@ METRICS: dict[str, MetricDefinition] = {
             "Projected minutes in the next Gameweek.",
             "minutes",
             "%.0f",
+            True,
+        ),
+        MetricDefinition(
+            "start_probability",
+            "Start Probability",
+            "Estimated probability of starting the next Gameweek.",
+            "%",
+            "%.0f%%",
             True,
         ),
         MetricDefinition(
@@ -63,6 +91,68 @@ METRICS: dict[str, MetricDefinition] = {
             "pts",
             "%.1f",
             True,
+        ),
+        MetricDefinition(
+            "goal_probability",
+            "Goal Probability",
+            "Market-implied anytime scoring probability when available.",
+            "%",
+            "%.1f%%",
+            True,
+            supports_positions=("DEF", "MID", "FWD"),
+        ),
+        MetricDefinition(
+            "goal_xpts",
+            "Goal Threat",
+            "Next-Gameweek blended expected points from goals.",
+            "pts",
+            "%.2f",
+            True,
+            supports_positions=("DEF", "MID", "FWD"),
+        ),
+        MetricDefinition(
+            "assist_xpts",
+            "Assist Threat",
+            "Next-Gameweek blended expected points from assists.",
+            "pts",
+            "%.2f",
+            True,
+            supports_positions=("DEF", "MID", "FWD"),
+        ),
+        MetricDefinition(
+            "clean_sheet_xpts",
+            "Clean Sheet Potential",
+            "Next-Gameweek blended expected points from clean sheets.",
+            "pts",
+            "%.2f",
+            True,
+            supports_positions=("GK", "DEF", "MID"),
+        ),
+        MetricDefinition(
+            "save_xpts",
+            "Save Potential",
+            "Next-Gameweek blended expected points from saves.",
+            "pts",
+            "%.2f",
+            True,
+            supports_positions=("GK",),
+        ),
+        MetricDefinition(
+            "bonus_xpts",
+            "Bonus Potential",
+            "Next-Gameweek blended expected points from bonus.",
+            "pts",
+            "%.2f",
+            True,
+        ),
+        MetricDefinition(
+            "attacking_xpts",
+            "Attacking Threat",
+            "Next-Gameweek blended goal and assist expected points.",
+            "pts",
+            "%.2f",
+            True,
+            supports_positions=("DEF", "MID", "FWD"),
         ),
         MetricDefinition(
             "xpts_3gw", "3GW xPts", "Expected points over three Gameweeks.", "pts", "%.1f", True

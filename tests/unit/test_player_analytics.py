@@ -24,6 +24,7 @@ def test_dataset_joins_precomputed_metrics_and_normalizes_direction() -> None:
     arsenal, chelsea = records
     assert arsenal.full_name == "Martin Ødegaard"
     assert arsenal.xpts_5gw == 24.0
+    assert arsenal.start_probability is None
     assert chelsea.normalized["blended_xpts"] == pytest.approx(100.0)
     assert arsenal.normalized["risk"] == pytest.approx(100.0)
     assert chelsea.normalized["risk"] == pytest.approx(0.0)
