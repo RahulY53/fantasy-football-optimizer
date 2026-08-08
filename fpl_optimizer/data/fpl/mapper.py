@@ -94,6 +94,17 @@ def map_bootstrap(payload: Any) -> BootstrapData:
                 form=_float(item, "form", 0.0),
                 points_per_game=_float(item, "points_per_game", 0.0),
                 ict_index=_float(item, "ict_index", 0.0),
+                own_goals=_int(item, "own_goals", 0),
+                penalties_saved=_int(item, "penalties_saved", 0),
+                penalties_missed=_int(item, "penalties_missed", 0),
+                yellow_cards=_int(item, "yellow_cards", 0),
+                red_cards=_int(item, "red_cards", 0),
+                clearances_blocks_interceptions=_int(
+                    item, "clearances_blocks_interceptions", 0
+                ),
+                tackles=_int(item, "tackles", 0),
+                recoveries=_int(item, "recoveries", 0),
+                defensive_contribution=_int(item, "defensive_contribution", 0),
             )
         )
     if not teams or not gameweeks:

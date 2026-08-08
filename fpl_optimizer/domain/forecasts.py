@@ -35,6 +35,15 @@ class PlayerForecastInput:
     form: float = 0.0
     points_per_game: float = 0.0
     ict_index: float = 0.0
+    own_goals: int = 0
+    penalties_saved: int = 0
+    penalties_missed: int = 0
+    yellow_cards: int = 0
+    red_cards: int = 0
+    clearances_blocks_interceptions: int = 0
+    tackles: int = 0
+    recoveries: int = 0
+    defensive_contribution: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +97,7 @@ class StatisticalComponents:
     saves: float
     bonus: float
     deductions: float
+    defensive_contribution: float = 0.0
 
     @property
     def total(self) -> float:
@@ -101,6 +111,7 @@ class StatisticalComponents:
             + self.saves
             + self.bonus
             + self.deductions
+            + self.defensive_contribution
         )
 
 

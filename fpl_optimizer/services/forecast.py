@@ -27,7 +27,7 @@ from fpl_optimizer.features.fixture_strength import (
 from fpl_optimizer.forecasting.statistical import project_statistical_xpts
 
 MODEL_NAME = "advanced-statistical-xpts"
-MODEL_VERSION = "0.9.0"
+MODEL_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +116,8 @@ class ForecastService:
                     "expected_minutes_prior_matches": 3,
                     "expected_minutes_role_signals": "starts-plus-minutes-share",
                     "additional_player_signals": "ict-form-bps-bounded",
+                    "scoring_rules": "fpl-2026-27",
+                    "defensive_contribution_thresholds": "DEF-10-CBIT;MID-FWD-12-CBIRT",
                     "baseline_team_xg": 1.35,
                     "fixture_strength_source": "official-ratings-with-fdr-fallback",
                 },
@@ -194,7 +196,9 @@ def _project_gameweek(
         "availability": round(minutes.availability, 4),
         "fixtures": fixture_explanations,
         "limitations": (
-            "Role and event-rate priors are blended with starts, minutes share, ICT, form, and BPS."
+            "Role and event-rate priors are blended with starts, minutes share, ICT, form, "
+            "BPS, and official 2026/27 defensive-action totals. Bonus remains a historical-rate "
+            "projection rather than a full event-level BPS simulation."
         ),
     }
     return ForecastOutput(
@@ -230,4 +234,7 @@ def _add_components(
         saves=left.saves + right.saves,
         bonus=left.bonus + right.bonus,
         deductions=left.deductions + right.deductions,
+        defensive_contribution=(
+            left.defensive_contribution + right.defensive_contribution
+        ),
     )

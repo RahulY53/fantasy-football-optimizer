@@ -135,6 +135,17 @@ class FplRepository:
                         form=player_item.form,
                         points_per_game=player_item.points_per_game,
                         ict_index=player_item.ict_index,
+                        own_goals=player_item.own_goals,
+                        penalties_saved=player_item.penalties_saved,
+                        penalties_missed=player_item.penalties_missed,
+                        yellow_cards=player_item.yellow_cards,
+                        red_cards=player_item.red_cards,
+                        clearances_blocks_interceptions=(
+                            player_item.clearances_blocks_interceptions
+                        ),
+                        tackles=player_item.tackles,
+                        recoveries=player_item.recoveries,
+                        defensive_contribution=player_item.defensive_contribution,
                     )
                 )
 
@@ -208,6 +219,10 @@ class FplRepository:
                 "Points/game": metrics.points_per_game,
                 "BPS": metrics.bps,
                 "ICT index": metrics.ict_index,
+                "Defensive contributions": metrics.defensive_contribution,
+                "CBI": metrics.clearances_blocks_interceptions,
+                "Tackles": metrics.tackles,
+                "Recoveries": metrics.recoveries,
                 "Transfers in": metrics.transfers_in,
                 "Transfers out": metrics.transfers_out,
                 "Status": player.status,

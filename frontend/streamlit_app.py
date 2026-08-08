@@ -58,7 +58,7 @@ st.subheader("Phase 2 capabilities")
 st.markdown(
     """
 - Probability-weighted expected minutes with availability and confidence
-- Fixture-adjusted goal, assist, clean-sheet, save, bonus, and deduction components
+- 2026/27 goal, assist, clean-sheet, save, defensive-contribution, bonus, and deduction scoring
 - Statistical xPts across the next six Gameweeks, including blanks and doubles
 - Versioned forecasts with source cutoff timestamps and plain-language limitations
 """

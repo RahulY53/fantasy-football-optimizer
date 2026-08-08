@@ -208,6 +208,7 @@ class OddsRepository:
                     save_xpts=components.saves,
                     bonus_xpts=components.bonus,
                     deduction_xpts=components.deductions,
+                    defensive_contribution_xpts=components.defensive_contribution,
                     market_xpts=components.total,
                     fixture_count=output.fixture_count,
                     confidence=output.confidence,

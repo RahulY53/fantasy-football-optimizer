@@ -28,7 +28,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     container.close()
 
 
-app = FastAPI(title="FPL Optimizer", version="0.13.0", lifespan=lifespan)
+app = FastAPI(title="FPL Optimizer", version="0.14.0", lifespan=lifespan)
 
 
 class StrategyRequest(BaseModel):
@@ -182,7 +182,7 @@ def statistical_forecasts(market_weight: float = 0.3) -> list[dict[str, object]]
 
 @app.post("/forecasts/advanced/run")
 def run_advanced_forecasts(horizon: int = 6) -> dict[str, Any]:
-    """Generate Phase 9 statistical forecasts with improved minutes and extra signals."""
+    """Generate 2026/27 statistical forecasts with current scoring rules."""
 
     return run_statistical_forecasts(horizon)
 

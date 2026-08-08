@@ -96,7 +96,7 @@ class StrategyRepository:
         for player_id, rows in grouped.items():
             player, team, snapshot, _ = rows[0]
             weekly: list[float] = []
-            attacking = clean_sheet = bonus = 0.0
+            attacking = clean_sheet = bonus = defensive_contribution = 0.0
             minutes = fixtures = confidence = 0.0
             for _, _, _, forecast in rows:
                 market = market_by_key.get((player_id, forecast.gameweek_id))
@@ -122,6 +122,11 @@ class StrategyRepository:
                     market.bonus_xpts if market else None,
                     market_weight,
                 )
+                defensive_contribution += _blend_components(
+                    forecast.defensive_contribution_xpts,
+                    market.defensive_contribution_xpts if market else None,
+                    market_weight,
+                )
                 minutes += forecast.expected_minutes
                 fixtures += forecast.fixture_count
                 confidence += {"Low": 0.25, "Medium": 0.65, "High": 1.0}.get(
@@ -145,6 +150,7 @@ class StrategyRepository:
                     attacking_xpts=attacking,
                     clean_sheet_xpts=clean_sheet,
                     bonus_xpts=bonus,
+                    defensive_contribution_xpts=defensive_contribution,
                     confidence=confidence / len(rows),
                 )
             )

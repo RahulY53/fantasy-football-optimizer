@@ -15,6 +15,17 @@ from fpl_optimizer.services.refresh import RefreshService
 def test_forecast_handles_double_and_blank_gameweeks(
     tmp_path, bootstrap_payload, fixture_payload
 ) -> None:
+    defender = next(
+        player for player in bootstrap_payload["elements"] if player["element_type"] == 2
+    )
+    defender.update(
+        {
+            "defensive_contribution": 14,
+            "clearances_blocks_interceptions": 10,
+            "tackles": 4,
+            "recoveries": 0,
+        }
+    )
     bootstrap_payload["events"].append(
         {
             "id": 3,
@@ -71,4 +82,10 @@ def test_forecast_handles_double_and_blank_gameweeks(
         assert details[0]["Expected minutes"] > 90
         assert details[2]["Opponent"] == "Blank"
         assert details[2]["Stat xPts"] == 0
+        assert "Defensive contribution xPts" in summaries[0]
+        assert any(
+            row["Defensive contribution"] > 0
+            for summary in summaries
+            for row in repository.player_details(summary["Player ID"])
+        )
     database.engine.dispose()

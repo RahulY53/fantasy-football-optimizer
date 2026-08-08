@@ -37,6 +37,18 @@ These narrow bounds are intentional: ICT, form, BPS, goals, assists, and bonus o
 adjustment would double-count the same past performance. The exact multipliers appear in each
 fixture explanation. These are predictive heuristics, not calibrated causal effects.
 
+## 2026/27 scoring rules
+
+Model version 1.0 adds the current positional goal values, including 10 points for a goalkeeper
+goal. Saves are forecast using the one-point-per-three threshold rather than a linear division.
+Penalty saves, penalty misses, cards, own goals, and goals-conceded bands are projected explicitly.
+
+Outfield defensive-contribution points use official cumulative action totals. Defenders earn two
+points when a simulated Poisson action count reaches 10 CBIT; midfielders and forwards earn two at
+12 CBIRT. The result is capped at two points per fixture and is retained in both statistical and
+market-derived player xPts. Advanced strategy profiles expose it as a separate preference while it
+also remains part of total expected points for every optimizer.
+
 ## Advanced fixture markets
 
 The core market forecast still requires complete bookmaker snapshots for:
@@ -78,6 +90,9 @@ allocation unchanged.
 
 - Bootstrap data is season-aggregate data; it does not provide a true recent lineup/minutes history.
 - ICT, form, and BPS adjustments are bounded heuristics and require backtesting in Phase 12.
+- Defensive-action inputs are season aggregates, so match-up-specific action intensity is not yet
+  modelled. Position priors dominate early in the season.
+- Bonus is projected from historical bonus/BPS rates rather than a full 2026/27 BPS event model.
 - The independent-Poisson model does not capture score dependence, tactical game state, or player
   correlations.
 - Team-total 1.5 is the only team line supported in Phase 9.

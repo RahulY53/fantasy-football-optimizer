@@ -244,12 +244,13 @@ def _player_market_outputs(
                     saves=base.saves,
                     bonus=base.bonus,
                     deductions=base.deductions,
+                    defensive_contribution=base.defensive_contribution,
                 )
                 key = (player.player_id, fixture.gameweek_id)
                 state = aggregated.setdefault(
                     key,
                     _PlayerAggregate(
-                        components=StatisticalComponents(0, 0, 0, 0, 0, 0, 0),
+                        components=StatisticalComponents(0, 0, 0, 0, 0, 0, 0, 0),
                         fixtures=[],
                         count=0,
                         confidence="High",
@@ -294,11 +295,12 @@ def _player_market_outputs(
             fixture_count=state.count,
             confidence=state.confidence,
             explanation={
-                "model": "advanced-market-xpts 0.9.0",
+                "model": "advanced-market-xpts 1.0.0",
                 "fixtures": state.fixtures,
                 "limitations": (
                     "Team market xG is allocated with shrunk player attacking shares; "
-                    "optional goalscorer prices refine goal allocation when present."
+                    "optional goalscorer prices refine goal allocation when present. Non-market "
+                    "2026/27 scoring components retain the statistical projection."
                 ),
             },
             goalscorer_probability=state.goalscorer_probability,
@@ -379,4 +381,5 @@ def _add(left: StatisticalComponents, right: StatisticalComponents) -> Statistic
         left.saves + right.saves,
         left.bonus + right.bonus,
         left.deductions + right.deductions,
+        left.defensive_contribution + right.defensive_contribution,
     )

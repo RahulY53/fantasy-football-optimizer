@@ -21,6 +21,7 @@ class SimulationWeekInput:
     save_xpts: float
     bonus_xpts: float
     deduction_xpts: float
+    defensive_contribution_xpts: float = 0.0
 
     @property
     def total_xpts(self) -> float:
@@ -34,6 +35,7 @@ class SimulationWeekInput:
             + self.save_xpts
             + self.bonus_xpts
             + self.deduction_xpts
+            + self.defensive_contribution_xpts
         )
 
 
@@ -114,4 +116,3 @@ class SimulationResult:
     weeks: tuple[WeekSimulationSummary, ...]
     players: tuple[PlayerSimulationSummary, ...]
     histogram: tuple[HistogramBin, ...]
-

@@ -32,6 +32,9 @@ def simulation_squad() -> list[SimulationPlayerInput]:
                     save_xpts=0.4 if position == "GK" else 0.0,
                     bonus_xpts=0.2,
                     deduction_xpts=-0.05,
+                    defensive_contribution_xpts=(
+                        0.5 if position in {"DEF", "MID", "FWD"} else 0.0
+                    ),
                 )
                 for week in (1, 2)
             ),

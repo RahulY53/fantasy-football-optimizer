@@ -43,6 +43,7 @@ class PlayerStrategyInput:
     clean_sheet_xpts: float
     bonus_xpts: float
     confidence: float
+    defensive_contribution_xpts: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)

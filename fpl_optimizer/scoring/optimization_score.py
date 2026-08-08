@@ -143,6 +143,7 @@ def _raw_features(
         "attacking": player.attacking_xpts,
         "clean_sheet": player.clean_sheet_xpts,
         "bonus": player.bonus_xpts,
+        "defensive_contribution": player.defensive_contribution_xpts,
         "differential": 100.0 - player.ownership,
         "ceiling": max(player.week_xpts, default=0.0) + 0.25 * player.attacking_xpts,
         "consistency": consistency,

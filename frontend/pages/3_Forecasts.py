@@ -10,7 +10,7 @@ from fpl_optimizer.database.forecast_repository import ForecastRepository
 
 container = page_setup("Forecasts", "📈")
 st.title("Advanced forecasts")
-st.caption("Improved expected minutes, additional FPL signals, and optional player markets")
+st.caption("2026/27 scoring, defensive contributions, improved minutes, and optional markets")
 market_status = container.live_odds.status()
 if market_status.last_sync is not None:
     label = "STALE ODDS" if market_status.stale else "Market data current"
@@ -54,6 +54,7 @@ elif choices:
             "Clean sheet",
             "Saves",
             "Bonus",
+            "Defensive contribution",
             "Deductions",
             "Stat xPts",
             "Market xPts",

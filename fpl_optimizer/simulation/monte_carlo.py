@@ -156,6 +156,9 @@ def _simulate_week(
             clean_sheet = np.zeros(iterations)
         saves = rng.poisson(max(week.save_xpts, 0.0), size=iterations)
         bonus = np.minimum(rng.poisson(max(week.bonus_xpts, 0.0), size=iterations), 3)
+        defensive_contribution = (
+            rng.random(iterations) < min(max(week.defensive_contribution_xpts / 2.0, 0.0), 1.0)
+        ) * 2
         deductions = rng.poisson(max(-week.deduction_xpts, 0.0), size=iterations)
         values[:, index] = (
             appearance
@@ -164,6 +167,7 @@ def _simulate_week(
             + clean_sheet
             + saves
             + bonus
+            + defensive_contribution
             - deductions
         )
     return values

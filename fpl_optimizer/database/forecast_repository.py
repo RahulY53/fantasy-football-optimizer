@@ -79,6 +79,15 @@ class ForecastRepository:
                 form=metrics.form,
                 points_per_game=metrics.points_per_game,
                 ict_index=metrics.ict_index,
+                own_goals=metrics.own_goals,
+                penalties_saved=metrics.penalties_saved,
+                penalties_missed=metrics.penalties_missed,
+                yellow_cards=metrics.yellow_cards,
+                red_cards=metrics.red_cards,
+                clearances_blocks_interceptions=metrics.clearances_blocks_interceptions,
+                tackles=metrics.tackles,
+                recoveries=metrics.recoveries,
+                defensive_contribution=metrics.defensive_contribution,
             )
             for player, metrics in self.session.execute(statement)
         ]
@@ -160,7 +169,7 @@ class ForecastRepository:
         row = ModelVersion(
             name=name,
             semantic_version=semantic_version,
-            feature_schema="phase2-v1",
+            feature_schema="fpl-2026-v1",
             parameter_json=json.dumps(parameters, sort_keys=True),
             training_cutoff_at=None,
             code_revision="local",
@@ -190,6 +199,7 @@ class ForecastRepository:
                     save_xpts=components.saves,
                     bonus_xpts=components.bonus,
                     deduction_xpts=components.deductions,
+                    defensive_contribution_xpts=components.defensive_contribution,
                     stat_xpts=components.total,
                     fixture_count=output.fixture_count,
                     opponent_summary=output.opponent_summary,
@@ -268,6 +278,15 @@ class ForecastRepository:
                         ),
                         market_weight,
                     ),
+                    "Defensive contribution xPts": _blend(
+                        first.defensive_contribution_xpts,
+                        (
+                            first_market.defensive_contribution_xpts
+                            if first_market
+                            else None
+                        ),
+                        market_weight,
+                    ),
                     "3GW xPts": sum(blended[:3]),
                     "5GW xPts": sum(blended[:5]),
                     "6GW xPts": sum(blended[:6]),
@@ -320,6 +339,7 @@ class ForecastRepository:
                     "Clean sheet": forecast.clean_sheet_xpts,
                     "Saves": forecast.save_xpts,
                     "Bonus": forecast.bonus_xpts,
+                    "Defensive contribution": forecast.defensive_contribution_xpts,
                     "Deductions": forecast.deduction_xpts,
                     "Stat xPts": forecast.stat_xpts,
                     "Market xPts": market.market_xpts if market else None,
@@ -486,6 +506,15 @@ class ForecastRepository:
                         bonus_xpts=_blend_component(
                             forecast.bonus_xpts,
                             market.bonus_xpts if market else None,
+                            market_weight,
+                        ),
+                        defensive_contribution_xpts=_blend_component(
+                            forecast.defensive_contribution_xpts,
+                            (
+                                market.defensive_contribution_xpts
+                                if market
+                                else None
+                            ),
                             market_weight,
                         ),
                         deduction_xpts=_blend_component(

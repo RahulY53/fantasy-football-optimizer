@@ -42,3 +42,32 @@ def test_mapping_defaults_explicitly_null_optional_metrics(bootstrap_payload) ->
 
     assert result.teams[0].strength == 0
     assert result.players[0].starts == 0
+
+
+def test_mapping_reads_2026_scoring_metrics(bootstrap_payload) -> None:
+    player = bootstrap_payload["elements"][0]
+    player.update(
+        {
+            "defensive_contribution": 21,
+            "clearances_blocks_interceptions": 12,
+            "tackles": 4,
+            "recoveries": 5,
+            "yellow_cards": 2,
+            "red_cards": 1,
+            "own_goals": 1,
+            "penalties_saved": 1,
+            "penalties_missed": 1,
+        }
+    )
+
+    mapped = map_bootstrap(bootstrap_payload).players[0]
+
+    assert mapped.defensive_contribution == 21
+    assert mapped.clearances_blocks_interceptions == 12
+    assert mapped.tackles == 4
+    assert mapped.recoveries == 5
+    assert mapped.yellow_cards == 2
+    assert mapped.red_cards == 1
+    assert mapped.own_goals == 1
+    assert mapped.penalties_saved == 1
+    assert mapped.penalties_missed == 1

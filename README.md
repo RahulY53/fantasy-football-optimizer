@@ -25,6 +25,8 @@ sourced after its deadline, and calibrates statistical/market blend weights with
 holdout evaluation when enough Gameweeks are available.
 The live-data increment adds public Team ID squad import and an optional cached Odds-API.io EPL
 connector while preserving the existing forecast → preference → optimization boundaries.
+The 2026/27 scoring upgrade adds defensive contributions, current goalkeeper goal scoring,
+threshold-based save points, and explicit cards, penalties, own goals, and conceded-goal bands.
 
 ## Local setup
 
@@ -34,6 +36,7 @@ Python 3.12 or newer is required.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
+alembic upgrade head
 streamlit run frontend/streamlit_app.py
 ```
 

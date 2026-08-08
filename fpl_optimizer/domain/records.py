@@ -63,6 +63,15 @@ class PlayerRecord:
     form: float
     points_per_game: float
     ict_index: float
+    own_goals: int = 0
+    penalties_saved: int = 0
+    penalties_missed: int = 0
+    yellow_cards: int = 0
+    red_cards: int = 0
+    clearances_blocks_interceptions: int = 0
+    tackles: int = 0
+    recoveries: int = 0
+    defensive_contribution: int = 0
 
 
 @dataclass(frozen=True, slots=True)
