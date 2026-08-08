@@ -1,0 +1,6 @@
+database_url: sqlite:///data/fpl_optimizer.db
+cache_dir: data/cache
+cache_ttl_seconds: 900
+http_timeout_seconds: 15
+log_level: INFO
+
