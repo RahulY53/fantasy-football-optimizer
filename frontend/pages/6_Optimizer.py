@@ -6,6 +6,7 @@ from dataclasses import asdict
 
 import pandas as pd
 import streamlit as st
+from components.compare_actions import open_compare_page
 from shared import active_strategy_profile, market_weight, page_setup
 
 from fpl_optimizer.domain.optimizer import SquadOptimizationRequest
@@ -95,6 +96,7 @@ if isinstance(stored, dict) and stored.get("signature") == signature:
     squad = pd.DataFrame(
         [
             {
+                "Player ID": player.player_id,
                 "Player": player.player,
                 "Position": player.position,
                 "Team": player.team,
@@ -108,8 +110,8 @@ if isinstance(stored, dict) and stored.get("signature") == signature:
             for player in result.players
         ]
     )
-    st.dataframe(
-        squad,
+    optimizer_event = st.dataframe(
+        squad.drop(columns="Player ID"),
         hide_index=True,
         width="stretch",
         column_config={
@@ -121,7 +123,23 @@ if isinstance(stored, dict) and stored.get("signature") == signature:
             "Ownership %": st.column_config.NumberColumn(format="%.1f%%"),
             "Risk": st.column_config.NumberColumn(format="%.1f/100"),
         },
+        key="optimizer_result_table",
+        on_select="rerun",
+        selection_mode="multi-row",
     )
+    optimizer_compare_ids = [
+        int(squad.iloc[index]["Player ID"])
+        for index in optimizer_event.selection.rows
+        if 0 <= index < len(squad)
+    ]
+    if st.button(
+        "Compare selected squad players",
+        disabled=not optimizer_compare_ids,
+        key="optimizer_open_compare",
+    ):
+        open_compare_page(optimizer_compare_ids[:5], "Optimizer recommendations")
+    if len(optimizer_compare_ids) > 5:
+        st.caption("Player Compare accepts the first five selected optimizer rows.")
 
     st.subheader("Constraint audit")
     team_counts = squad.groupby("Team").size()

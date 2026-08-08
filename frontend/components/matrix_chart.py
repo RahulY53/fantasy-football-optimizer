@@ -52,6 +52,7 @@ def player_matrix_figure(
                 textfont={"size": 10},
                 customdata=[
                     [
+                        point.player_id,
                         point.full_name,
                         point.team,
                         point.position,
@@ -81,15 +82,15 @@ def player_matrix_figure(
                     },
                 },
                 hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>"
-                    "%{customdata[1]} · %{customdata[2]} · %{customdata[3]}<br>"
-                    f"{analysis.x_metric.label}: %{{customdata[4]}}<br>"
-                    f"{analysis.y_metric.label}: %{{customdata[5]}}<br>"
-                    "Blended xPts: %{customdata[6]}<br>"
-                    "Expected minutes: %{customdata[7]}<br>"
-                    "Ownership: %{customdata[8]}<br>"
-                    "Risk: %{customdata[9]}<br>"
-                    "Optimization score: %{customdata[10]}"
+                    "<b>%{customdata[1]}</b><br>"
+                    "%{customdata[2]} · %{customdata[3]} · %{customdata[4]}<br>"
+                    f"{analysis.x_metric.label}: %{{customdata[5]}}<br>"
+                    f"{analysis.y_metric.label}: %{{customdata[6]}}<br>"
+                    "Blended xPts: %{customdata[7]}<br>"
+                    "Expected minutes: %{customdata[8]}<br>"
+                    "Ownership: %{customdata[9]}<br>"
+                    "Risk: %{customdata[10]}<br>"
+                    "Optimization score: %{customdata[11]}"
                     "<extra></extra>"
                 ),
             )

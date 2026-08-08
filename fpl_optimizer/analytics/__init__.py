@@ -35,10 +35,16 @@ from fpl_optimizer.analytics.matrix import (
 )
 from fpl_optimizer.analytics.metrics import METRICS, MetricDefinition, metric_definition
 from fpl_optimizer.analytics.player_dataset import PlayerAnalyticsRecord, build_player_dataset
+from fpl_optimizer.analytics.selection import (
+    MAX_COMPARE_PLAYERS,
+    PlayerSelection,
+    normalize_player_selection,
+)
 
 __all__ = [
     "METRICS",
     "MATRIX_PRESETS",
+    "MAX_COMPARE_PLAYERS",
     "REFERENCE_METHODS",
     "UNIVERSE_OPTIONS",
     "ComparisonUniverse",
@@ -53,6 +59,7 @@ __all__ = [
     "PlayerAnalyticsRecord",
     "PlayerFilterSpec",
     "PlayerRadarProfile",
+    "PlayerSelection",
     "RadarMetricValue",
     "QuadrantInsight",
     "QuadrantLabels",
@@ -69,5 +76,6 @@ __all__ = [
     "fixture_comparison_rows",
     "forecast_export_rows",
     "metric_definition",
+    "normalize_player_selection",
     "radar_profiles",
 ]

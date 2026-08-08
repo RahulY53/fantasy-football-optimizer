@@ -6,6 +6,11 @@ from typing import cast
 
 import pandas as pd
 import streamlit as st
+from components.compare_actions import (
+    ANALYTICS_TABS_KEY,
+    consume_compare_handoff,
+    queue_compare_players,
+)
 from components.forecast_chart import ForecastChartMode, player_forecast_figure
 from components.matrix_chart import (
     ColorMode,
@@ -149,6 +154,16 @@ records = load_player_analytics(container)
 if not require_data(list(records), "players"):
     st.stop()
 
+all_player_ids = {record.player_id for record in records}
+handoff, handoff_source = consume_compare_handoff(all_player_ids)
+if handoff is not None:
+    source_note = f" from {handoff_source}" if handoff_source else ""
+    st.success(
+        f"Loaded {len(handoff.player_ids)} player(s){source_note} into Compare."
+    )
+    if handoff.rejected_ids:
+        st.warning("Some unavailable or excess players could not be added.")
+
 if not any(record.blended_xpts is not None for record in records):
     st.info(
         "Generate advanced forecasts from the sidebar to unlock forecast-specific comparison "
@@ -159,7 +174,7 @@ filters = render_player_filters(records, key_prefix="analytics")
 filtered_records = filter_players(records, filters)
 st.write(f"{len(filtered_records)} of {len(records)} players match the current filters")
 
-valid_compare_ids = {record.player_id for record in filtered_records}
+valid_compare_ids = all_player_ids
 saved_compare_ids = st.session_state.get("analytics_compare_ids", [])
 if isinstance(saved_compare_ids, list):
     st.session_state["analytics_compare_ids"] = [
@@ -168,7 +183,7 @@ if isinstance(saved_compare_ids, list):
 
 labels = {
     record.player_id: f"{record.full_name} · {record.team} · {record.position}"
-    for record in filtered_records
+    for record in records
 }
 selected_ids = st.multiselect(
     "Compare players",
@@ -181,7 +196,9 @@ selected_ids = st.multiselect(
 selected = tuple(record for record in records if record.player_id in selected_ids)
 
 explorer_tab, compare_tab, matrix_tab, forecast_tab = st.tabs(
-    ["Explorer", "Compare", "2×2 Matrix", "Forecast"]
+    ["Explorer", "Compare", "2×2 Matrix", "Forecast"],
+    default="Compare" if handoff is not None else "Explorer",
+    key=ANALYTICS_TABS_KEY,
 )
 
 with explorer_tab:
@@ -197,13 +214,35 @@ with explorer_tab:
         st.info("Choose at least one column to display the player explorer.")
     else:
         frame = pd.DataFrame(record.as_row() for record in filtered_records)
-        st.dataframe(
+        explorer_event = st.dataframe(
             frame[list(displayed_columns)],
             hide_index=True,
             width="stretch",
             column_config=_column_config(),
+            key="analytics_explorer_table",
+            on_select="rerun",
+            selection_mode="multi-row",
         )
-        st.caption("Select column headers to sort the current filtered results.")
+        selected_rows = explorer_event.selection.rows
+        explorer_player_ids = [
+            filtered_records[index].player_id
+            for index in selected_rows
+            if 0 <= index < len(filtered_records)
+        ]
+        action_columns = st.columns([1, 3])
+        if action_columns[0].button(
+            "Compare selected rows",
+            disabled=not explorer_player_ids,
+            key="analytics_compare_explorer_rows",
+            width="stretch",
+        ):
+            selection = queue_compare_players(explorer_player_ids, "Player Explorer")
+            if selection.rejected_ids:
+                st.warning("Compare supports up to five players; the first five were selected.")
+            st.rerun()
+        action_columns[1].caption(
+            "Select up to five table rows, then send them directly to Compare."
+        )
         export_columns = list(
             dict.fromkeys(
                 ("Player ID", *EXPLORER_COLUMNS, "Web Name", "News", "Updated")
@@ -536,7 +575,7 @@ with matrix_tab:
         else:
             plotted_ids = {point.player_id for point in analysis.points}
             excluded_count = len(matrix_records) - len(analysis.points)
-            st.plotly_chart(
+            matrix_event = st.plotly_chart(
                 player_matrix_figure(
                     analysis,
                     color_mode=cast(ColorMode, color_mode),
@@ -547,7 +586,26 @@ with matrix_tab:
                 ),
                 width="stretch",
                 config={"displaylogo": False, "responsive": True},
+                key="analytics_matrix_plot",
+                on_select="rerun",
+                selection_mode=("points", "box", "lasso"),
             )
+            matrix_selected_ids: list[int] = []
+            for selected_point in matrix_event.selection.points:
+                customdata = selected_point.get("customdata")
+                if isinstance(customdata, (list, tuple)) and customdata:
+                    matrix_selected_ids.append(int(customdata[0]))
+            if st.button(
+                "Compare selected matrix points",
+                disabled=not matrix_selected_ids,
+                key="analytics_compare_matrix_points",
+            ):
+                selection = queue_compare_players(matrix_selected_ids, "2×2 Matrix")
+                if selection.rejected_ids:
+                    st.warning(
+                        "Compare supports up to five players; the first five were selected."
+                    )
+                st.rerun()
             exclusion_note = (
                 f" · {excluded_count} players omitted because an axis value is unavailable"
                 if excluded_count

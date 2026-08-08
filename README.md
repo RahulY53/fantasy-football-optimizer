@@ -29,6 +29,10 @@ Selected players can also be compared across future fixtures with weekly and cum
 xPts curves, separate attacking and defensive fixture difficulty, and local CSV exports. See
 [docs/player_forecast_analytics.md](docs/player_forecast_analytics.md).
 
+Explorer rows, matrix selections, My Team, and optimized-squad results can now feed directly into
+the same two-to-five-player comparison workspace. See
+[docs/player_compare_workflow.md](docs/player_compare_workflow.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.

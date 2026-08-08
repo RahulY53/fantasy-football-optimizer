@@ -6,6 +6,7 @@ from dataclasses import asdict
 
 import pandas as pd
 import streamlit as st
+from components.compare_actions import open_compare_page
 from shared import (
     active_strategy_profile,
     format_timestamp,
@@ -159,6 +160,26 @@ if published is not None:
 
 if st.session_state.pop("team_saved", False):
     st.success("Current squad saved.")
+
+if existing is not None:
+    with st.expander("Compare players from My Team"):
+        squad_labels = {
+            player.player_id: f"{player.player} · {player.team} · {player.position}"
+            for player in existing.players
+        }
+        squad_compare_ids = st.multiselect(
+            "Choose up to five squad players",
+            options=list(squad_labels),
+            format_func=lambda player_id: squad_labels[player_id],
+            max_selections=5,
+            key="my_team_compare_ids",
+        )
+        if st.button(
+            "Open in Player Compare",
+            disabled=not squad_compare_ids,
+            key="my_team_open_compare",
+        ):
+            open_compare_page(squad_compare_ids, "My Team")
 
 with st.expander("Edit current squad", expanded=existing is None):
     if latest_optimized is not None and st.button("Use latest optimized squad"):
