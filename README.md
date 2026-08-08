@@ -10,6 +10,11 @@ names, partial text, and unaccented input; team and position remain available fo
 The identity and fallback rules are documented in
 [docs/player_name_data_quality.md](docs/player_name_data_quality.md).
 
+The player browser now uses a reusable combined filter system and a cached analytics dataset with
+one centralized metric registry. Team, position, price, ownership, expected-minutes, forecast,
+risk, and strategy-score filters work together without rerunning forecast or optimization models.
+See [docs/player_analytics_foundation.md](docs/player_analytics_foundation.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.

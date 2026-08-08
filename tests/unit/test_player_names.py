@@ -25,3 +25,9 @@ def test_search_covers_name_forms_and_ignores_accents_and_case() -> None:
     assert normalize_name_query("FERNANDEZ") in search_text
     assert normalize_name_query("e. fern") in search_text
     assert normalize_name_query("Enz") in search_text
+
+
+def test_search_transliterates_special_latin_letters() -> None:
+    search_text = player_name_search_text("Martin", "Ødegaard", "Ødegaard")
+
+    assert normalize_name_query("odegaard") in search_text

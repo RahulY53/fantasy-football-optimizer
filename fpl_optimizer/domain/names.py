@@ -4,6 +4,18 @@ from __future__ import annotations
 
 import unicodedata
 
+SPECIAL_LATIN_TRANSLITERATION = str.maketrans(
+    {
+        "æ": "ae",
+        "ð": "d",
+        "đ": "d",
+        "ł": "l",
+        "ø": "o",
+        "œ": "oe",
+        "þ": "th",
+    }
+)
+
 
 def clean_name(value: str | None) -> str:
     """Collapse provider whitespace and return a display-safe name part."""
@@ -60,7 +72,7 @@ def normalize_name_query(value: str) -> str:
 
 
 def _search_normalize(value: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", value)
-    return "".join(
-        character for character in decomposed if not unicodedata.combining(character)
-    ).casefold()
+    decomposed = unicodedata.normalize("NFKD", value.casefold()).translate(
+        SPECIAL_LATIN_TRANSLITERATION
+    )
+    return "".join(character for character in decomposed if not unicodedata.combining(character))

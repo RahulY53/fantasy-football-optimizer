@@ -10,6 +10,7 @@ from fpl_optimizer.data.fpl.client import FplClient
 from fpl_optimizer.data.fpl.team_service import PublicFplTeamService
 from fpl_optimizer.database.base import Database
 from fpl_optimizer.odds.providers.odds_api_io import OddsApiIoProvider
+from fpl_optimizer.services.analytics import PlayerAnalyticsService
 from fpl_optimizer.services.backtesting import BacktestService
 from fpl_optimizer.services.chips import ChipService
 from fpl_optimizer.services.forecast import ForecastService
@@ -48,6 +49,7 @@ class AppContainer:
     chips: ChipService
     backtesting: BacktestService
     update_team: TeamUpdateService
+    analytics: PlayerAnalyticsService
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> AppContainer:
@@ -109,6 +111,7 @@ class AppContainer:
                 team_service,
                 transfers_service,
             ),
+            PlayerAnalyticsService(database, strategy),
         )
 
     def close(self) -> None:

@@ -214,6 +214,11 @@ class ForecastRepository:
 
         return self.session.scalar(select(func.max(PlayerForecast.prediction_at)))
 
+    def latest_market_prediction_at(self) -> datetime | None:
+        """Return the timestamp of the most recent player-level market forecast."""
+
+        return self.session.scalar(select(func.max(PlayerMarketForecast.prediction_at)))
+
     def list_player_summaries(self, market_weight: float = 0.3) -> list[dict[str, object]]:
         """Return current-run 1/3/6 Gameweek player forecast summaries."""
 

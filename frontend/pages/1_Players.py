@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
+from components.player_filters import render_player_filters
 from shared import (
-    load_forecast_summaries,
-    load_players,
-    load_strategy_scores,
+    load_player_analytics,
     page_setup,
     require_data,
 )
 
-from fpl_optimizer.domain.names import normalize_name_query
+from fpl_optimizer.analytics.filters import filter_players
 
 container = page_setup("Players", "👤")
 st.title("Players")
@@ -24,41 +23,17 @@ if market_status.last_sync is not None:
 else:
     st.caption("Market forecast unavailable · blended xPts falls back to statistical xPts")
 
-rows = load_players(container)
-if require_data(rows, "players"):
-    frame = pd.DataFrame(rows)
-    forecasts = pd.DataFrame(load_forecast_summaries(container))
-    if not forecasts.empty:
-        frame = frame.merge(forecasts, on="Player ID", how="left")
-        scores = pd.DataFrame(load_strategy_scores(container))
-        if not scores.empty:
-            frame = frame.merge(scores, on="Player ID", how="left")
-    else:
+records = load_player_analytics(container)
+if require_data(list(records), "players"):
+    if not any(record.blended_xpts is not None for record in records):
         st.info("Generate statistical forecasts from the sidebar to add expected minutes and xPts.")
-    filter_cols = st.columns([2, 1, 1, 1])
-    search = filter_cols[0].text_input("Search", placeholder="First name, surname, or FPL web name")
-    positions = filter_cols[1].multiselect(
-        "Position", options=sorted(frame["Position"].dropna().unique())
-    )
-    teams = filter_cols[2].multiselect("Team", options=sorted(frame["Team"].dropna().unique()))
-    available_only = filter_cols[3].toggle("Available only", value=False)
+    filters = render_player_filters(records)
+    filtered_records = filter_players(records, filters)
+    frame = pd.DataFrame(record.as_row() for record in records)
+    filtered_ids = {record.player_id for record in filtered_records}
+    filtered = frame[frame["Player ID"].isin(filtered_ids)]
 
-    filtered = frame
-    if search:
-        normalized_search = normalize_name_query(search)
-        filtered = filtered[
-            filtered["Name Search"].str.contains(
-                normalized_search, case=False, regex=False, na=False
-            )
-        ]
-    if positions:
-        filtered = filtered[filtered["Position"].isin(positions)]
-    if teams:
-        filtered = filtered[filtered["Team"].isin(teams)]
-    if available_only:
-        filtered = filtered[filtered["Status"] == "a"]
-
-    st.write(f"{len(filtered)} of {len(frame)} players")
+    st.write(f"{len(filtered_records)} of {len(records)} players")
     st.dataframe(
         filtered,
         hide_index=True,
@@ -74,6 +49,7 @@ if require_data(rows, "players"):
             "Blended xPts": st.column_config.NumberColumn("Blended xPts", format="%.1f"),
             "Market edge": st.column_config.NumberColumn("Market edge", format="%+.1f"),
             "3GW xPts": st.column_config.NumberColumn("3GW xPts", format="%.1f"),
+            "5GW xPts": st.column_config.NumberColumn("5GW xPts", format="%.1f"),
             "6GW xPts": st.column_config.NumberColumn("6GW xPts", format="%.1f"),
             "Value": st.column_config.NumberColumn("Value", format="%.1f"),
             "Risk": st.column_config.NumberColumn("Risk", format="%.0f/100"),
@@ -94,6 +70,7 @@ if require_data(rows, "players"):
             "Blended xPts",
             "Market edge",
             "3GW xPts",
+            "5GW xPts",
             "6GW xPts",
             "Value",
             "Risk",

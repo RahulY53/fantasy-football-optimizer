@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import streamlit as st
 
+from fpl_optimizer.analytics.player_dataset import PlayerAnalyticsRecord
 from fpl_optimizer.database.forecast_repository import ForecastRepository
 from fpl_optimizer.database.repositories import FplRepository
-from fpl_optimizer.domain.strategy import StrategyProfile
+from fpl_optimizer.domain.strategy import StrategyMode, StrategyProfile
 from fpl_optimizer.logging import configure_logging
 from fpl_optimizer.scoring.presets import preset_profile
 from fpl_optimizer.services.container import AppContainer
@@ -182,6 +185,49 @@ def load_strategy_scores(container: AppContainer) -> list[dict[str, object]]:
         }
         for score in scores
     ]
+
+
+def load_player_analytics(container: AppContainer) -> tuple[PlayerAnalyticsRecord, ...]:
+    """Load a freshness-keyed analytics dataset without recalculating forecasts."""
+
+    with container.database.session() as session:
+        players_updated = FplRepository(session).freshness()
+        forecasts = ForecastRepository(session)
+        forecast_updated = forecasts.latest_prediction_at()
+        market_updated = forecasts.latest_market_prediction_at()
+    profile = active_strategy_profile()
+    return _cached_player_analytics(
+        players_updated.isoformat() if players_updated else "",
+        forecast_updated.isoformat() if forecast_updated else "",
+        market_updated.isoformat() if market_updated else "",
+        market_weight(),
+        json.dumps(asdict(profile), sort_keys=True),
+    )
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_player_analytics(
+    players_updated: str,
+    forecast_updated: str,
+    market_updated: str,
+    selected_market_weight: float,
+    profile_json: str,
+) -> tuple[PlayerAnalyticsRecord, ...]:
+    """Cache the joined read model; timestamp arguments form the invalidation key."""
+
+    del players_updated, forecast_updated, market_updated
+    value = json.loads(profile_json)
+    profile = StrategyProfile(
+        name=str(value["name"]),
+        mode=cast(StrategyMode, value["mode"]),
+        preset=str(value["preset"]),
+        horizon=int(value["horizon"]),
+        risk_appetite=int(value["risk_appetite"]),
+        transfer_reluctance=int(value["transfer_reluctance"]),
+        ownership_preference=int(value["ownership_preference"]),
+        weights={str(key): int(weight) for key, weight in value["weights"].items()},
+    )
+    return get_container().analytics.dataset(profile, selected_market_weight)
 
 
 def require_data(rows: list[Any], noun: str) -> bool:
