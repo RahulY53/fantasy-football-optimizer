@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from fpl_optimizer.database.base import Database
 from fpl_optimizer.database.models import (
@@ -24,6 +25,8 @@ from fpl_optimizer.services.simulation import SimulationService
 from fpl_optimizer.services.strategy import StrategyService
 from fpl_optimizer.services.team import CurrentTeamService
 from fpl_optimizer.services.transfers import TransferOptimizerService
+from fpl_optimizer.services.update_team import TeamUpdateService
+from fpl_optimizer.services.weekly import WeeklyDecisionService
 
 
 def test_current_team_saves_and_generates_complete_lineup(tmp_path) -> None:
@@ -181,6 +184,17 @@ def test_current_team_saves_and_generates_complete_lineup(tmp_path) -> None:
     )
     chip_service = ChipService(database, strategy_service)
     chip_report = chip_service.run(preset_profile("Balanced", "simple"), 0.3, 3)
+    weekly_service = WeeklyDecisionService(
+        cast(TeamUpdateService, object()),
+        service,
+        transfer_service,
+        planner_service,
+        simulation_service,
+        chip_service,
+    )
+    weekly_report = weekly_service.run_cached(
+        preset_profile("Balanced", "simple"), 0.3
+    )
 
     assert team_id > 0
     assert saved is not None
@@ -190,16 +204,23 @@ def test_current_team_saves_and_generates_complete_lineup(tmp_path) -> None:
     assert len(report.result.starters) == 11
     assert len(report.result.bench) == 4
     assert report.result.captain_id != report.result.vice_captain_id
-    assert service.recent_lineups()[0]["Run ID"] == report.run_id
+    assert report.run_id in {row["Run ID"] for row in service.recent_lineups()}
     assert transfer_report.evaluation.recommendation == "ROLL TRANSFER"
     assert [plan.transfers for plan in transfer_report.evaluation.plans] == [0]
-    assert transfer_service.recent()[0]["Run ID"] == transfer_report.run_id
+    assert transfer_report.run_id in {row["Run ID"] for row in transfer_service.recent()}
     assert len(planner_report.plan.weeks) == 3
     assert planner_report.plan.total_transfers == 0
-    assert planner_service.recent()[0]["Run ID"] == planner_report.run_id
+    assert planner_report.run_id in {row["Run ID"] for row in planner_service.recent()}
     assert simulation_report.result.iterations == 1_000
     assert len(simulation_report.result.weeks) == 3
-    assert simulation_service.recent()[0]["Run ID"] == simulation_report.run_id
+    assert simulation_report.run_id in {
+        row["Run ID"] for row in simulation_service.recent()
+    }
     assert len(chip_report.evaluation.opportunities) == 4
-    assert chip_service.recent()[0]["Run ID"] == chip_report.run_id
+    assert chip_report.run_id in {row["Run ID"] for row in chip_service.recent()}
+    assert weekly_report.summary.action_kind in {"Roll", "Chip"}
+    assert weekly_report.summary.recommended_transfers == 0
+    assert weekly_report.summary.projected_score > 0
+    assert weekly_report.summary.captain
+    assert weekly_report.simulation.result.iterations == 2_500
     database.engine.dispose()

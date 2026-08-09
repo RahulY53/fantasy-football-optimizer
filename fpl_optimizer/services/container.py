@@ -27,6 +27,7 @@ from fpl_optimizer.services.transfers import TransferOptimizerService
 from fpl_optimizer.services.update_odds import LiveOddsUpdateService
 from fpl_optimizer.services.update_team import TeamUpdateService
 from fpl_optimizer.services.watchlist import WatchlistService
+from fpl_optimizer.services.weekly import WeeklyDecisionService
 
 
 @dataclass(slots=True)
@@ -54,6 +55,7 @@ class AppContainer:
     analytics: PlayerAnalyticsService
     watchlist: WatchlistService
     changes: ChangeDetectionService
+    weekly: WeeklyDecisionService
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> AppContainer:
@@ -89,6 +91,25 @@ class AppContainer:
             stale_after_seconds=resolved.odds_stale_after_seconds,
         )
         transfers_service = TransferOptimizerService(database, strategy)
+        planner_service = MultiGameweekPlannerService(database, strategy)
+        simulation_service = SimulationService(database)
+        chips_service = ChipService(database, strategy)
+        update_team_service = TeamUpdateService(
+            refresh_service,
+            team_import_service,
+            forecast_service,
+            live_odds_service,
+            team_service,
+            transfers_service,
+        )
+        weekly_service = WeeklyDecisionService(
+            update_team_service,
+            team_service,
+            transfers_service,
+            planner_service,
+            simulation_service,
+            chips_service,
+        )
         return cls(
             resolved,
             database,
@@ -103,21 +124,15 @@ class AppContainer:
             team_import_service,
             live_odds_service,
             transfers_service,
-            MultiGameweekPlannerService(database, strategy),
-            SimulationService(database),
-            ChipService(database, strategy),
+            planner_service,
+            simulation_service,
+            chips_service,
             BacktestService(database),
-            TeamUpdateService(
-                refresh_service,
-                team_import_service,
-                forecast_service,
-                live_odds_service,
-                team_service,
-                transfers_service,
-            ),
+            update_team_service,
             PlayerAnalyticsService(database, strategy),
             WatchlistService(database),
             ChangeDetectionService(database),
+            weekly_service,
         )
 
     def close(self) -> None:

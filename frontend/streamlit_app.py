@@ -13,8 +13,8 @@ st.title("Fantasy Premier League Optimizer")
 st.caption("A local-first forecasting and decision engine")
 
 st.success(
-    "Live workflow available: import a published squad by FPL Team ID and optionally refresh "
-    "cached Odds-API.io EPL markets from Settings · Data Sources."
+    "Weekly Dashboard available: refresh the available evidence and combine lineup, transfer, "
+    "planner, simulation, and chip engines into one decision card."
 )
 
 with container.database.session() as session:
@@ -39,7 +39,8 @@ else:
     st.write(
         "Generate forecasts from the sidebar, choose preferences on **Strategy**, build an initial "
         "squad in **Optimizer**, manage its lineup on **My Team**, then compare transfer plans "
-        "on **Transfers**, or build a future path on **Planner**."
+        "on **Transfers**, build a future path on **Planner**, or open **Weekly Dashboard** for "
+        "one consolidated recommendation."
     )
 
 st.divider()

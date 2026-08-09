@@ -42,6 +42,11 @@ surface meaningful xPts, minutes, price, ownership, market, and availability mov
 Watchlist filtering, Compare handoff, and CSV export. See
 [docs/player_change_detection.md](docs/player_change_detection.md).
 
+The **Weekly Decision Dashboard** refreshes or reuses cached evidence, then combines lineup,
+transfer, multi-Gameweek planning, simulation, and chip outputs into one recommendation card with
+transparent confidence and risk. See
+[docs/weekly_decision_dashboard.md](docs/weekly_decision_dashboard.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.
