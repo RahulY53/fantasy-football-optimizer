@@ -155,6 +155,12 @@ if not require_data(list(records), "players"):
     st.stop()
 
 all_player_ids = {record.player_id for record in records}
+watchlist_entries = container.watchlist.entries()
+watchlist_by_id = {entry.player_id: entry for entry in watchlist_entries}
+watchlist_ids = frozenset(watchlist_by_id)
+watchlist_flash = st.session_state.pop("analytics_watchlist_flash", None)
+if watchlist_flash:
+    st.success(str(watchlist_flash))
 handoff, handoff_source = consume_compare_handoff(all_player_ids)
 if handoff is not None:
     source_note = f" from {handoff_source}" if handoff_source else ""
@@ -170,7 +176,11 @@ if not any(record.blended_xpts is not None for record in records):
         "dimensions. Season form, price, ownership, and points remain available."
     )
 
-filters = render_player_filters(records, key_prefix="analytics")
+filters = render_player_filters(
+    records,
+    key_prefix="analytics",
+    watchlist_ids=watchlist_ids,
+)
 filtered_records = filter_players(records, filters)
 st.write(f"{len(filtered_records)} of {len(records)} players match the current filters")
 
@@ -195,10 +205,11 @@ selected_ids = st.multiselect(
 )
 selected = tuple(record for record in records if record.player_id in selected_ids)
 
-explorer_tab, compare_tab, matrix_tab, forecast_tab = st.tabs(
-    ["Explorer", "Compare", "2×2 Matrix", "Forecast"],
+explorer_tab, compare_tab, matrix_tab, forecast_tab, watchlist_tab = st.tabs(
+    ["Explorer", "Compare", "2×2 Matrix", "Forecast", "Watchlist"],
     default="Compare" if handoff is not None else "Explorer",
     key=ANALYTICS_TABS_KEY,
+    on_change="rerun",
 )
 
 with explorer_tab:
@@ -229,7 +240,7 @@ with explorer_tab:
             for index in selected_rows
             if 0 <= index < len(filtered_records)
         ]
-        action_columns = st.columns([1, 3])
+        action_columns = st.columns([1, 1, 2])
         if action_columns[0].button(
             "Compare selected rows",
             disabled=not explorer_player_ids,
@@ -240,7 +251,20 @@ with explorer_tab:
             if selection.rejected_ids:
                 st.warning("Compare supports up to five players; the first five were selected.")
             st.rerun()
-        action_columns[1].caption(
+        if action_columns[1].button(
+            "Add to Watchlist",
+            disabled=not explorer_player_ids,
+            key="analytics_watch_explorer_rows",
+            width="stretch",
+        ):
+            added = container.watchlist.add_many(explorer_player_ids)
+            st.session_state["analytics_watchlist_flash"] = (
+                f"Added {added} player(s) to the Watchlist."
+                if added
+                else "The selected players were already on the Watchlist."
+            )
+            st.rerun()
+        action_columns[2].caption(
             "Select up to five table rows, then send them directly to Compare."
         )
         export_columns = list(
@@ -693,3 +717,141 @@ with forecast_tab:
                 mime="text/csv",
                 key="analytics_forecast_csv",
             )
+
+with watchlist_tab:
+    st.subheader("Persistent player Watchlist")
+    st.caption(
+        "Membership and notes are stored locally. Metrics below reuse the latest cached player, "
+        "forecast, market, and strategy data."
+    )
+    add_widget_version = int(st.session_state.get("analytics_watchlist_add_version", 0))
+    manage_widget_version = int(
+        st.session_state.get("analytics_watchlist_manage_version", 0)
+    )
+
+    available_to_add = tuple(
+        record for record in records if record.player_id not in watchlist_ids
+    )
+    add_labels = {
+        record.player_id: f"{record.full_name} · {record.team} · {record.position}"
+        for record in available_to_add
+    }
+    add_columns = st.columns([2, 2, 1])
+    add_ids = add_columns[0].multiselect(
+        "Add players",
+        options=list(add_labels),
+        format_func=lambda player_id: add_labels[player_id],
+        key=f"analytics_watchlist_add_ids_{add_widget_version}",
+        placeholder="Search by full name",
+    )
+    add_note = add_columns[1].text_input(
+        "Initial note",
+        key=f"analytics_watchlist_add_note_{add_widget_version}",
+        placeholder="Optional reason for monitoring",
+    )
+    if add_columns[2].button(
+        "Add",
+        disabled=not add_ids,
+        key="analytics_watchlist_add",
+        width="stretch",
+    ):
+        added = container.watchlist.add_many(add_ids, add_note)
+        st.session_state["analytics_watchlist_add_version"] = add_widget_version + 1
+        st.session_state["analytics_watchlist_flash"] = (
+            f"Added {added} player(s) to the Watchlist."
+        )
+        st.rerun()
+
+    watched_records = tuple(
+        record for record in records if record.player_id in watchlist_ids
+    )
+    if not watched_records:
+        st.info("Add players to begin tracking them across analytics updates.")
+    else:
+        watchlist_frame = pd.DataFrame(
+            {
+                **record.as_row(),
+                "Watchlist note": watchlist_by_id[record.player_id].note,
+                "Added": watchlist_by_id[record.player_id].created_at,
+            }
+            for record in watched_records
+        )
+        watchlist_columns = [
+            "Full Name",
+            "Team",
+            "Position",
+            "Price",
+            "Ownership %",
+            "Expected minutes",
+            "Opponent",
+            "Market xPts",
+            "Blended xPts",
+            "3GW xPts",
+            "5GW xPts",
+            "Risk",
+            "Optimization Score",
+            "Status",
+            "News",
+            "Watchlist note",
+            "Added",
+        ]
+        st.dataframe(
+            watchlist_frame[watchlist_columns],
+            hide_index=True,
+            width="stretch",
+            column_config=_column_config(),
+        )
+
+        watched_labels = {
+            record.player_id: f"{record.full_name} · {record.team} · {record.position}"
+            for record in watched_records
+        }
+        manage_ids = st.multiselect(
+            "Select watched players",
+            options=list(watched_labels),
+            format_func=lambda player_id: watched_labels[player_id],
+            key=f"analytics_watchlist_manage_ids_{manage_widget_version}",
+        )
+        manage_columns = st.columns(2)
+        if manage_columns[0].button(
+            "Open first five in Compare",
+            disabled=not manage_ids,
+            key="analytics_watchlist_compare",
+            width="stretch",
+        ):
+            queue_compare_players(manage_ids, "Watchlist")
+            st.rerun()
+        if manage_columns[1].button(
+            "Remove selected",
+            disabled=not manage_ids,
+            key="analytics_watchlist_remove",
+            width="stretch",
+        ):
+            removed = container.watchlist.remove_many(manage_ids)
+            st.session_state["analytics_watchlist_manage_version"] = (
+                manage_widget_version + 1
+            )
+            st.session_state["analytics_watchlist_flash"] = (
+                f"Removed {removed} player(s) from the Watchlist."
+            )
+            st.rerun()
+
+        note_player_id = st.selectbox(
+            "Edit player note",
+            options=list(watched_labels),
+            format_func=lambda player_id: watched_labels[player_id],
+            key=f"analytics_watchlist_note_player_{manage_widget_version}",
+        )
+        note_entry = watchlist_by_id[note_player_id]
+        note_value = st.text_area(
+            "Watchlist note",
+            value=note_entry.note,
+            key=f"analytics_watchlist_note_{note_player_id}",
+            placeholder="Why are you monitoring this player?",
+        )
+        if st.button("Save note", key="analytics_watchlist_save_note"):
+            changed = container.watchlist.update_note(note_player_id, note_value)
+            st.session_state["analytics_watchlist_flash"] = (
+                "Watchlist note saved." if changed else "Watchlist note was unchanged."
+            )
+            st.rerun()

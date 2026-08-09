@@ -12,6 +12,7 @@ radar chart, fixture comparison, and forecast chart limits.
 - **My Team:** open **Compare players from My Team**, choose up to five squad members, and open
   Player Compare.
 - **Optimizer:** select rows from the latest optimized squad and open them in Player Compare.
+- **Watchlist:** select watched players and open the first five in Player Compare.
 
 Each handoff replaces the previous comparison selection, navigates to Player Analytics, and opens
 the Compare tab. Duplicate IDs are removed in input order. If a source supplies more than five
@@ -23,5 +24,5 @@ Selection changes only browser session state. They do not rerun forecasting, mar
 optimization. The existing cached analytics and per-Gameweek forecast read models serve the
 comparison views.
 
-A persistent watchlist is a separate roadmap capability. When added, it can use this same handoff
-without introducing another comparison implementation.
+The persistent Watchlist uses this same handoff rather than introducing another comparison
+implementation.

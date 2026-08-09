@@ -33,6 +33,10 @@ Explorer rows, matrix selections, My Team, and optimized-squad results can now f
 the same two-to-five-player comparison workspace. See
 [docs/player_compare_workflow.md](docs/player_compare_workflow.md).
 
+The local SQLite-backed Player Watchlist tracks current forecast and decision metrics, supports
+combined Watchlist filtering and personal notes, and feeds watched players into Compare. See
+[docs/player_watchlist.md](docs/player_watchlist.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.

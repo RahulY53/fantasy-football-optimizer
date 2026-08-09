@@ -92,6 +92,22 @@ class Player(Base):
     )
 
 
+class PlayerWatchlist(Base):
+    """Persistent user interest in one canonical FPL player."""
+
+    __tablename__ = "player_watchlist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(
+        ForeignKey("player.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+    player: Mapped[Player] = relationship()
+
+
 class PlayerSnapshot(Base):
     """Timestamped current-season player metrics."""
 

@@ -25,6 +25,7 @@ from fpl_optimizer.services.team_import import TeamImportService
 from fpl_optimizer.services.transfers import TransferOptimizerService
 from fpl_optimizer.services.update_odds import LiveOddsUpdateService
 from fpl_optimizer.services.update_team import TeamUpdateService
+from fpl_optimizer.services.watchlist import WatchlistService
 
 
 @dataclass(slots=True)
@@ -50,6 +51,7 @@ class AppContainer:
     backtesting: BacktestService
     update_team: TeamUpdateService
     analytics: PlayerAnalyticsService
+    watchlist: WatchlistService
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> AppContainer:
@@ -112,6 +114,7 @@ class AppContainer:
                 transfers_service,
             ),
             PlayerAnalyticsService(database, strategy),
+            WatchlistService(database),
         )
 
     def close(self) -> None:

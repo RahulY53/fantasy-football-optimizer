@@ -9,7 +9,9 @@ from fpl_optimizer.analytics.player_dataset import PlayerAnalyticsRecord
 
 
 def render_player_filters(
-    records: tuple[PlayerAnalyticsRecord, ...], key_prefix: str = "players"
+    records: tuple[PlayerAnalyticsRecord, ...],
+    key_prefix: str = "players",
+    watchlist_ids: frozenset[int] = frozenset(),
 ) -> PlayerFilterSpec:
     """Render shared basic and advanced controls and return serializable state."""
 
@@ -19,7 +21,7 @@ def render_player_filters(
         for position in ("GK", "DEF", "MID", "FWD")
         if any(record.position == position for record in records)
     ]
-    columns = st.columns([2, 1, 1, 1])
+    columns = st.columns([2, 1, 1, 1, 1])
     search = columns[0].text_input(
         "Search",
         placeholder="First name, surname, or FPL web name",
@@ -30,6 +32,16 @@ def render_player_filters(
     )
     selected_teams = columns[2].multiselect("Team", teams, key=f"{key_prefix}_teams")
     available_only = columns[3].toggle("Available only", value=False, key=f"{key_prefix}_available")
+    watchlist_key = f"{key_prefix}_watchlist_only"
+    if not watchlist_ids and st.session_state.get(watchlist_key):
+        st.session_state[watchlist_key] = False
+    watchlist_only = columns[4].toggle(
+        "Watchlist only",
+        value=False,
+        key=watchlist_key,
+        disabled=not watchlist_ids,
+        help=f"Limit results to {len(watchlist_ids)} watched player(s).",
+    )
 
     prices = [record.price for record in records]
     ownership = [record.ownership for record in records]
@@ -93,6 +105,8 @@ def render_player_filters(
         maximum_risk=maximum_risk,
         minimum_optimization_score=minimum_score,
         available_only=available_only,
+        watchlist_only=watchlist_only,
+        watchlist_ids=watchlist_ids,
     )
 
 
