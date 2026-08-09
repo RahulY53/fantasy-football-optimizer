@@ -25,10 +25,13 @@ def evaluate_chips(
     budget: float,
     gameweeks: list[tuple[int, str]],
     availability: dict[str, bool],
+    forced_chip: str | None = None,
+    forced_gameweek_id: int | None = None,
 ) -> ChipEvaluation:
     """Evaluate the best independent use of every supported chip."""
 
     current = _validate(candidates, current_ids, budget, gameweeks)
+    forced_index = _forced_week_index(forced_chip, forced_gameweek_id, gameweeks)
     names = {player.player_id: player.player for player in candidates}
     baseline = tuple(
         _current_week_plan(current, week_index, gameweek)
@@ -36,13 +39,20 @@ def evaluate_chips(
     )
     baseline_total = sum(week.projected_points for week in baseline)
 
-    wildcard_weeks = _optimize_squad(candidates, range(len(gameweeks)), budget, gameweeks)
-    wildcard_ids = set(wildcard_weeks[0].squad_ids)
+    wildcard_start = forced_index if forced_chip == "Wildcard" else 0
+    optimized_wildcard_weeks = _optimize_squad(
+        candidates,
+        list(range(wildcard_start, len(gameweeks))),
+        budget,
+        gameweeks[wildcard_start:],
+    )
+    wildcard_weeks = baseline[:wildcard_start] + optimized_wildcard_weeks
+    wildcard_ids = set(optimized_wildcard_weeks[0].squad_ids)
     wildcard_gain = sum(week.projected_points for week in wildcard_weeks) - baseline_total
     wildcard = ChipOpportunity(
         chip="Wildcard",
         available=availability.get("Wildcard", False),
-        recommended_gameweek=gameweeks[0][1],
+        recommended_gameweek=gameweeks[wildcard_start][1],
         projected_gain=wildcard_gain,
         rationale=(
             f"Rebuild the permanent squad for {wildcard_gain:.1f} additional projected points "
@@ -58,8 +68,10 @@ def evaluate_chips(
         optimized = _optimize_squad(candidates, [week_index], budget, [gameweek])[0]
         gain = optimized.projected_points - baseline[week_index].projected_points
         free_hit_options.append((gain, optimized))
-    free_hit_gain, free_hit_week = max(
-        free_hit_options, key=lambda value: (value[0], -value[1].gameweek_id)
+    free_hit_gain, free_hit_week = (
+        free_hit_options[forced_index]
+        if forced_chip == "Free Hit"
+        else max(free_hit_options, key=lambda value: (value[0], -value[1].gameweek_id))
     )
     free_hit_ids = set(free_hit_week.squad_ids)
     free_hit = ChipOpportunity(
@@ -88,8 +100,10 @@ def evaluate_chips(
         normal_lineup = week.projected_points - captain_xpts
         bench_options.append((squad_xpts - normal_lineup, week))
         triple_options.append((captain_xpts, week))
-    bench_gain, bench_week = max(
-        bench_options, key=lambda value: (value[0], -value[1].gameweek_id)
+    bench_gain, bench_week = (
+        bench_options[forced_index]
+        if forced_chip == "Bench Boost"
+        else max(bench_options, key=lambda value: (value[0], -value[1].gameweek_id))
     )
     bench_boost = ChipOpportunity(
         chip="Bench Boost",
@@ -104,8 +118,10 @@ def evaluate_chips(
         players_out=(),
         weeks=(bench_week,),
     )
-    triple_gain, triple_week = max(
-        triple_options, key=lambda value: (value[0], -value[1].gameweek_id)
+    triple_gain, triple_week = (
+        triple_options[forced_index]
+        if forced_chip == "Triple Captain"
+        else max(triple_options, key=lambda value: (value[0], -value[1].gameweek_id))
     )
     triple_captain = ChipOpportunity(
         chip="Triple Captain",
@@ -131,6 +147,122 @@ def evaluate_chips(
         best_gain=best.projected_gain if best else 0.0,
         opportunities=opportunities,
     )
+
+
+def evaluate_forced_chip(
+    candidates: list[ChipCandidate],
+    *,
+    current_ids: set[int],
+    budget: float,
+    gameweeks: list[tuple[int, str]],
+    chip: str,
+    gameweek_id: int,
+    available: bool,
+) -> ChipOpportunity:
+    """Evaluate only one forced chip and Gameweek for fast sensitivity analysis."""
+
+    current = _validate(candidates, current_ids, budget, gameweeks)
+    week_index = _forced_week_index(chip, gameweek_id, gameweeks)
+    baseline = tuple(
+        _current_week_plan(current, index, gameweek)
+        for index, gameweek in enumerate(gameweeks)
+    )
+    names = {player.player_id: player.player for player in candidates}
+    if chip == "Wildcard":
+        optimized = _optimize_squad(
+            candidates,
+            list(range(week_index, len(gameweeks))),
+            budget,
+            gameweeks[week_index:],
+        )
+        baseline_after = sum(week.projected_points for week in baseline[week_index:])
+        gain = sum(week.projected_points for week in optimized) - baseline_after
+        optimized_ids = set(optimized[0].squad_ids)
+        return ChipOpportunity(
+            chip=chip,
+            available=available,
+            recommended_gameweek=gameweeks[week_index][1],
+            projected_gain=gain,
+            rationale=(
+                f"Force a permanent squad rebuild in {gameweeks[week_index][1]} for "
+                f"{gain:.1f} projected points across the remaining horizon."
+            ),
+            players_in=tuple(sorted(optimized_ids - current_ids)),
+            players_out=tuple(sorted(current_ids - optimized_ids)),
+            weeks=optimized,
+        )
+    if chip == "Free Hit":
+        optimized_week = _optimize_squad(
+            candidates, [week_index], budget, [gameweeks[week_index]]
+        )[0]
+        gain = optimized_week.projected_points - baseline[week_index].projected_points
+        optimized_ids = set(optimized_week.squad_ids)
+        return ChipOpportunity(
+            chip=chip,
+            available=available,
+            recommended_gameweek=gameweeks[week_index][1],
+            projected_gain=gain,
+            rationale=(
+                f"Force a one-Gameweek squad in {gameweeks[week_index][1]} for "
+                f"{gain:.1f} additional projected points."
+            ),
+            players_in=tuple(sorted(optimized_ids - current_ids)),
+            players_out=tuple(sorted(current_ids - optimized_ids)),
+            weeks=(optimized_week,),
+        )
+    week = baseline[week_index]
+    if chip == "Bench Boost":
+        squad_xpts = sum(player.gameweek_xpts[week_index] for player in current)
+        captain_xpts = next(
+            player.gameweek_xpts[week_index]
+            for player in current
+            if player.player_id == week.captain_id
+        )
+        gain = squad_xpts - (week.projected_points - captain_xpts)
+        rationale = (
+            f"Force all four bench scores to count in {week.gameweek} for "
+            f"{gain:.1f} additional projected points."
+        )
+    else:
+        gain = next(
+            player.gameweek_xpts[week_index]
+            for player in current
+            if player.player_id == week.captain_id
+        )
+        rationale = (
+            f"Force triple captain on {names[week.captain_id]} in {week.gameweek} for "
+            f"{gain:.1f} points above normal captaincy."
+        )
+    return ChipOpportunity(
+        chip=chip,
+        available=available,
+        recommended_gameweek=week.gameweek,
+        projected_gain=gain,
+        rationale=rationale,
+        players_in=(),
+        players_out=(),
+        weeks=(week,),
+    )
+
+
+def _forced_week_index(
+    forced_chip: str | None,
+    forced_gameweek_id: int | None,
+    gameweeks: list[tuple[int, str]],
+) -> int:
+    if forced_chip is None:
+        if forced_gameweek_id is not None:
+            raise ValueError("A forced Gameweek requires a forced chip")
+        return 0
+    supported = {"Wildcard", "Free Hit", "Bench Boost", "Triple Captain"}
+    if forced_chip not in supported:
+        raise ValueError(f"Unsupported forced chip: {forced_chip}")
+    if forced_gameweek_id is None:
+        raise ValueError("Select a Gameweek for the forced chip scenario")
+    for index, (gameweek_id, _) in enumerate(gameweeks):
+        if gameweek_id == forced_gameweek_id:
+            return index
+    raise ValueError("The forced chip Gameweek is outside the selected horizon")
 
 
 def _optimize_squad(

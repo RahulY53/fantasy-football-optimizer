@@ -25,9 +25,17 @@ def evaluate_transfers(
     transfer_reluctance: int,
     horizon: int,
     max_transfers: int = 2,
+    protected_player_ids: set[int] | None = None,
+    must_sell_player_ids: set[int] | None = None,
+    must_buy_player_ids: set[int] | None = None,
+    excluded_player_ids: set[int] | None = None,
 ) -> TransferEvaluation:
     """Solve each exact transfer count and recommend action versus rolling."""
 
+    protected = protected_player_ids or set()
+    must_sell = must_sell_player_ids or set()
+    must_buy = must_buy_player_ids or set()
+    excluded = excluded_player_ids or set()
     current = _validate(
         candidates,
         bank=bank,
@@ -35,6 +43,10 @@ def evaluate_transfers(
         transfer_reluctance=transfer_reluctance,
         horizon=horizon,
         max_transfers=max_transfers,
+        protected_player_ids=protected,
+        must_sell_player_ids=must_sell,
+        must_buy_player_ids=must_buy,
+        excluded_player_ids=excluded,
     )
     current_xpts = sum(player.horizon_xpts for player in current)
     roll = TransferPlanResult(
@@ -47,7 +59,8 @@ def evaluate_transfers(
         net_gain=0.0,
         ending_bank=bank,
     )
-    plans = [roll]
+    has_forced_move = bool(must_sell or must_buy)
+    plans = [] if has_forced_move else [roll]
     for transfers in range(1, max_transfers + 1):
         plan = _solve_exact(
             candidates,
@@ -55,14 +68,28 @@ def evaluate_transfers(
             bank=bank,
             free_transfers=free_transfers,
             current_xpts=current_xpts,
+            protected_player_ids=protected,
+            must_sell_player_ids=must_sell,
+            must_buy_player_ids=must_buy,
+            excluded_player_ids=excluded,
         )
         if plan is not None:
             plans.append(plan)
 
     roll_value = 0.5 + 0.025 * transfer_reluctance
     alternatives = [plan for plan in plans if plan.transfers > 0]
+    if has_forced_move and not alternatives:
+        raise ValueError("No legal transfer plan satisfies all scenario rules")
     best = max(alternatives, key=_plan_key) if alternatives else roll
-    if best.net_gain > roll_value:
+    if has_forced_move and alternatives:
+        recommendation = f"MAKE {best.transfers} TRANSFER" + ("S" if best.transfers != 1 else "")
+        rationale = (
+            f"The best legal plan satisfying the scenario rules changes {best.transfers} "
+            f"player{'s' if best.transfers != 1 else ''} and adds {best.net_gain:.1f} net "
+            f"projected points over {horizon} Gameweeks."
+        )
+        recommended_transfers = best.transfers
+    elif best.net_gain > roll_value:
         recommendation = f"MAKE {best.transfers} TRANSFER" + ("S" if best.transfers != 1 else "")
         rationale = (
             f"The best {best.transfers}-transfer plan adds {best.gross_gain:.1f} projected "
@@ -101,6 +128,10 @@ def _solve_exact(
     bank: float,
     free_transfers: int,
     current_xpts: float,
+    protected_player_ids: set[int],
+    must_sell_player_ids: set[int],
+    must_buy_player_ids: set[int],
+    excluded_player_ids: set[int],
 ) -> TransferPlanResult | None:
     count = len(candidates)
     current = [player for player in candidates if player.is_current]
@@ -144,14 +175,16 @@ def _solve_exact(
         _selling_price(player) if player.is_current else player.buy_price
         for player in candidates
     ]
-    _add(
-        rows,
-        lower,
-        upper,
-        budget_coefficients,
-        0.0,
-        bank + total_selling,
-    )
+    _add(rows, lower, upper, budget_coefficients, 0.0, bank + total_selling)
+    required_ids = protected_player_ids | must_buy_player_ids
+    forbidden_ids = must_sell_player_ids | excluded_player_ids
+    for index, player in enumerate(candidates):
+        if player.player_id not in required_ids | forbidden_ids:
+            continue
+        coefficients = [0.0] * count
+        coefficients[index] = 1.0
+        target = 1.0 if player.player_id in required_ids else 0.0
+        _add(rows, lower, upper, coefficients, target, target)
     solved = milp(
         c=objective,
         integrality=[1] * count,
@@ -232,6 +265,10 @@ def _validate(
     transfer_reluctance: int,
     horizon: int,
     max_transfers: int,
+    protected_player_ids: set[int],
+    must_sell_player_ids: set[int],
+    must_buy_player_ids: set[int],
+    excluded_player_ids: set[int],
 ) -> list[TransferCandidate]:
     if bank < 0:
         raise ValueError("Bank cannot be negative")
@@ -242,7 +279,7 @@ def _validate(
     if not 1 <= horizon <= 6:
         raise ValueError("Planning horizon must be between one and six Gameweeks")
     if not 0 <= max_transfers <= 2:
-        raise ValueError("Phase 7 supports at most two transfers")
+        raise ValueError("Transfer comparison supports at most two transfers")
     ids = [player.player_id for player in candidates]
     if len(ids) != len(set(ids)):
         raise ValueError("Transfer candidate IDs must be unique")
@@ -257,6 +294,26 @@ def _validate(
         raise ValueError("Current squad exceeds the three-player club limit")
     if any(player.selling_price is None or player.selling_price <= 0 for player in current):
         raise ValueError("Every current player requires a positive selling price")
+    all_ids = set(ids)
+    current_ids = {player.player_id for player in current}
+    constrained = (
+        protected_player_ids
+        | must_sell_player_ids
+        | must_buy_player_ids
+        | excluded_player_ids
+    )
+    if constrained - all_ids:
+        raise ValueError("Scenario transfer rules contain unknown players")
+    if protected_player_ids - current_ids or must_sell_player_ids - current_ids:
+        raise ValueError("Protected and must-sell players must belong to the current squad")
+    if must_buy_player_ids & current_ids:
+        raise ValueError("Must-buy players must be outside the current squad")
+    if protected_player_ids & must_sell_player_ids:
+        raise ValueError("A player cannot be both protected and marked must sell")
+    if must_buy_player_ids & excluded_player_ids:
+        raise ValueError("A player cannot be both must buy and excluded")
+    if len(must_buy_player_ids) > max_transfers or len(must_sell_player_ids) > max_transfers:
+        raise ValueError("Scenario rules require more transfers than the selected maximum")
     return current
 
 

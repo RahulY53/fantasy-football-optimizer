@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fpl_optimizer.domain.chips import ChipCandidate
-from fpl_optimizer.optimizer.chips import evaluate_chips
+from fpl_optimizer.optimizer.chips import evaluate_chips, evaluate_forced_chip
 
 
 def chip_pool() -> tuple[list[ChipCandidate], set[int]]:
@@ -87,3 +87,41 @@ def test_unavailable_chip_is_not_selected_as_best() -> None:
 
     assert result.best_chip == "Bench Boost"
     assert next(item for item in result.opportunities if item.chip == "Free Hit").available is False
+
+
+def test_chip_scenario_forces_selected_gameweek() -> None:
+    candidates, current_ids = chip_pool()
+    result = evaluate_chips(
+        candidates,
+        current_ids=current_ids,
+        budget=75.0,
+        gameweeks=[(1, "GW1"), (2, "GW2"), (3, "GW3")],
+        availability={
+            chip: True
+            for chip in ("Wildcard", "Free Hit", "Bench Boost", "Triple Captain")
+        },
+        forced_chip="Free Hit",
+        forced_gameweek_id=1,
+    )
+
+    free_hit = next(item for item in result.opportunities if item.chip == "Free Hit")
+    assert free_hit.recommended_gameweek == "GW1"
+
+
+def test_targeted_chip_scenario_returns_only_requested_opportunity() -> None:
+    candidates, current_ids = chip_pool()
+
+    result = evaluate_forced_chip(
+        candidates,
+        current_ids=current_ids,
+        budget=75.0,
+        gameweeks=[(1, "GW1"), (2, "GW2"), (3, "GW3")],
+        chip="Triple Captain",
+        gameweek_id=1,
+        available=True,
+    )
+
+    assert result.chip == "Triple Captain"
+    assert result.recommended_gameweek == "GW1"
+    assert result.projected_gain > 0
+    assert result.available is True

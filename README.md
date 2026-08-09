@@ -1,512 +1,344 @@
-# FPL Optimizer
-
-FPL Optimizer
-
-An open-source, local-first Fantasy Premier League (FPL) forecasting, simulation, and decision engine for power users who want reproducible, offline-capable analytics for squad selection, transfers, lineups, captaincy, and chip strategy.
-
-Player data quality now uses official full names throughout detailed tables, saved teams,
-forecast selectors, strategy outputs, and backtests. Search accepts first names, surnames, FPL web
-names, partial text, and unaccented input; team and position remain available for disambiguation.
-The identity and fallback rules are documented in
-[docs/player_name_data_quality.md](docs/player_name_data_quality.md).
-
-The player browser now uses a reusable combined filter system and a cached analytics dataset with
-one centralized metric registry. Team, position, price, ownership, expected-minutes, forecast,
-risk, and strategy-score filters work together without rerunning forecast or optimization models.
-See [docs/player_analytics_foundation.md](docs/player_analytics_foundation.md).
-
-The dedicated Player Analytics page adds configurable player exploration, raw comparison tables,
-and position-aware Plotly radar charts for two to five players. Radar scores use a selectable
-comparison universe and retain raw values in hover details. See
-[docs/player_analytics_compare.md](docs/player_analytics_compare.md).
-
-The analytics 2×2 matrix plots any two available raw metrics, supports multiple player populations
-and reference methods, and explains each quadrant with ranked candidates. Seven presets cover
-value, threat, minutes, ownership, and market/model disagreement. See
-[docs/player_matrix.md](docs/player_matrix.md).
-
-Selected players can also be compared across future fixtures with weekly and cumulative blended
-xPts curves, separate attacking and defensive fixture difficulty, and local CSV exports. See
-[docs/player_forecast_analytics.md](docs/player_forecast_analytics.md).
-
-Explorer rows, matrix selections, My Team, and optimized-squad results can now feed directly into
-the same two-to-five-player comparison workspace. See
-[docs/player_compare_workflow.md](docs/player_compare_workflow.md).
-
-The local SQLite-backed Player Watchlist tracks current forecast and decision metrics, supports
-combined Watchlist filtering and personal notes, and feeds watched players into Compare. See
-[docs/player_watchlist.md](docs/player_watchlist.md).
-
-The **Changes** view compares the latest two stored FPL, statistical, and market observations to
-surface meaningful xPts, minutes, price, ownership, market, and availability movements—with
-Watchlist filtering, Compare handoff, and CSV export. See
-[docs/player_change_detection.md](docs/player_change_detection.md).
-
-The **Weekly Decision Dashboard** refreshes or reuses cached evidence, then combines lineup,
-transfer, multi-Gameweek planning, simulation, and chip outputs into one recommendation card with
-transparent confidence and risk. See
-[docs/weekly_decision_dashboard.md](docs/weekly_decision_dashboard.md).
-
-The advanced **Model Lab** inspects immutable model versions, temporary forecast blends,
-expected-minutes behavior, market coverage and disagreement, historical calibration, and strategy
-feature influence. It is read-only and deliberately excludes secrets and local connection details.
-See [docs/model_lab.md](docs/model_lab.md).
-
-Overview
-
-FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.
-
-The application is designed to be:
-
-- Local-first — data is cached in a local SQLite database for fast, resilient, and offline-capable operation.
-- Forecast-driven — generates expected points (xPts), expected minutes, and multi-Gameweek projections.
-- Market-aware — optionally incorporates bookmaker odds into player forecasts.
-- Optimization-based — uses integer programming to construct legal squads, select lineups, evaluate transfers, and plan across multiple Gameweeks.
-- Simulation-enabled — uses reproducible Monte Carlo simulation to quantify uncertainty and upside/downside.
-- Extensible — forecasting, strategy, optimization, simulation, and backtesting components are modular and documented.
-
----
-
-Features
-
-FPL Data
-
-The application retrieves official FPL player, team, and fixture data and stores it locally.
-
-Features include:
-
-- Official FPL "bootstrap-static" ingestion
-- Fixture ingestion
-- Local SQLite caching
-- Offline and resilient operation after data has been downloaded
-- Refreshable datasets for new Gameweeks
-
-The first data refresh downloads the latest player and fixture information from the public FPL service.
-
----
-
-Player Forecasting
-
-The forecasting engine estimates player performance across upcoming Gameweeks.
-
-It generates:
-
-- Expected points (xPts)
-- Expected minutes
-- Multi-Gameweek projections
-- Player-level forecast components
-- Explainable contribution breakdowns
-
-Forecasts can be generated using statistical models alone or combined with bookmaker market information.
-
----
-
-Betting Market Integration
-
-Bookmaker odds can be incorporated as an additional forecasting signal.
-
-The market layer supports:
-
-- 1X2 match odds
-- Over/Under 2.5 goal markets
-- Decimal odds
-- CSV market imports
-- Manual single-fixture odds entry
-- Multiple de-vigging methods
-- Implied goal estimation
-- Market-derived fixture expectations
-- Statistical/market forecast blending
-
-Users can control Market Influence from 0–100%, allowing the forecasting model to range from entirely statistical to heavily market-driven.
-
-An optional live Odds API connector is also available through:
-
-"FPL_OPTIMIZER_ODDS_API_KEY"
-
-The application falls back safely when live odds are unavailable.
-
-See "docs/market_model_card.md" for methodology and assumptions.
-
----
-
-Strategy & Custom Weighting
-
-Forecasts describe expected player performance. Strategy determines how those forecasts should be valued by the optimizer.
-
-Built-in strategies include approaches such as:
-
-- Balanced
-- Conservative
-- Aggressive
-- Value Hunter
-- Differential
-
-Users can also create their own strategy using Simple or Advanced weighting controls.
-
-Strategy scores are normalized before optimization, while the underlying player forecasts remain unchanged.
-
-Custom strategies are stored locally and can be reused.
-
-Player-level contribution breakdowns explain why each player receives their strategy score.
-
----
-
-Initial Squad Optimizer
-
-The squad optimizer constructs the highest-scoring legal 15-player FPL squad based on the selected forecasts and strategy.
-
-Every generated squad respects FPL constraints including:
-
-- 2 Goalkeepers
-- 5 Defenders
-- 5 Midfielders
-- 3 Forwards
-- FPL budget constraint
-- Maximum players per club
-
-Optimization outputs include:
-
-- Selected 15-player squad
-- Total squad cost
-- Expected performance
-- Strategy score
-- Constraint audit
-- Reproducible optimization inputs
-
----
-
-My Team Import
-
-Existing FPL managers can import their current squad using their public FPL Team ID.
-
-The application can maintain:
-
-- Current 15-player squad
-- Selling prices
-- Money in the bank
-- Available chips
-- Team state for subsequent optimization
-
-This allows the optimizer to work from the manager's real team rather than generating a new squad from scratch.
-
----
-
-Lineup & Captaincy Optimizer
-
-For an existing 15-player squad, the lineup optimizer determines the best starting XI for a Gameweek.
-
-It evaluates:
-
-- Legal FPL formations
-- Starting XI
-- Bench ordering
-- Captain selection
-- Expected Gameweek points
-
-The optimizer searches across eligible lineup combinations and selects the highest-value legal configuration.
-
----
-
-Transfer Optimizer
-
-The transfer engine evaluates whether a manager should:
-
-- Roll a transfer
-- Make one transfer
-- Make two transfers
-- Take a points hit when justified by expected future returns
-
-Transfer plans account for:
-
-- Players sold
-- Players purchased
-- Selling prices
-- Available bank
-- Free-transfer allowance
-- Expected points gained
-- Future Gameweek value
-
-Additional transfers beyond the free allowance are penalized using the standard 4-point hit.
-
-This allows transfer decisions to be evaluated on expected net value rather than simply identifying the player with the highest next-Gameweek projection.
-
----
-
-Multi-Gameweek Planner
-
-The planner jointly optimizes decisions across a 2–6 Gameweek horizon.
-
-Instead of optimizing each Gameweek independently, it evaluates sequences of decisions across the planning window.
-
-This can help identify situations where:
-
-- Rolling a transfer is preferable
-- A lower immediate return produces greater future value
-- Fixture swings justify an earlier transfer
-- A transfer hit can be recovered over several Gameweeks
-- Squad structure affects future flexibility
-
-The planner therefore treats FPL as a sequential decision problem rather than a series of isolated weekly optimizations.
-
----
-
-Monte Carlo Simulation
-
-Forecasts represent expected outcomes, but actual FPL results are uncertain.
-
-The simulation engine runs reproducible Monte Carlo simulations using between 1,000 and 50,000 iterations.
-
-Simulation outputs include:
-
-- Expected horizon points
-- Outcome distributions
-- P10/P90 ranges
-- Histograms
-- Player-level probabilities
-- Blank probability
-- Return probability
-- Haul probability
-
-The model also supports correlated club-level shocks so that player outcomes from the same match or team are not treated as completely independent.
-
-Fixed random seeds allow simulations to be reproduced.
-
----
-
-Chip Analysis
-
-The optimizer evaluates opportunities to use:
-
-- Wildcard
-- Free Hit
-- Bench Boost
-- Triple Captain
-
-Chip decisions can be evaluated across a 1–6 Gameweek horizon.
-
-The objective is to compare the expected value of using a chip now against alternative opportunities within the planning window.
-
----
-
-Backtesting & Model Calibration
-
-Historical outcomes can be imported through CSV and evaluated using chronological holdout backtests.
-
-Backtesting includes:
-
-- Historical forecast comparison
-- MAE
-- RMSE
-- Calibration analysis
-- Statistical forecast evaluation
-- Market forecast evaluation
-- Statistical/market blend evaluation
-- Suggested blending weights
-
-Chronological testing is used to reduce the risk of future information leaking into historical evaluations.
-
-This framework allows forecasting assumptions and market influence to be tested empirically rather than selected purely by intuition.
-
----
-
-Typical Workflow
-
-A typical user journey through the application is:
-
-Refresh FPL Data → Generate Forecasts → Add Market Odds → Choose Strategy → Import or Optimize Squad → Optimize Lineup → Evaluate Transfers → Plan Future Gameweeks → Run Simulations → Evaluate Chips
-
-Each component can also be used independently.
-
-For example, a user can generate statistical forecasts without bookmaker data or run the squad optimizer without importing an existing team.
-
----
-
-Quickstart
-
-Requirements
-
-- Python 3.12+
-
-Create a virtual environment, install dependencies, migrate the database, and start the application:
-
-python -m venv .venv
+# Fantasy Premier League Optimizer
+
+An open-source, local-first forecasting and decision engine for Fantasy Premier League managers.
+It combines official FPL data, explainable expected-points models, optional bookmaker signals,
+constrained optimization, simulation, and historical evaluation in a Streamlit application with
+an optional FastAPI interface.
+
+The application is designed for power users who want transparent assumptions, reproducible
+outputs, and control over their own data. Successful downloads are cached locally, forecasts and
+model metadata are timestamped, and normal use does not require a hosted account or cloud database.
+
+## What the application can do
+
+### Official FPL data and live team import
+
+- Download players, clubs, Gameweeks, fixtures, availability, prices, ownership, form, transfers,
+  and current-season performance from the public FPL service.
+- Store immutable source snapshots and normalized records in SQLite.
+- Reuse the latest successful cache when the live service is temporarily unavailable.
+- Import a publicly visible FPL squad from its Team ID, including published picks, captaincy,
+  selling prices, bank, manager summary, recent history, and transfers where available.
+- Preserve full official player names throughout search, saved teams, analytics, forecasts, and
+  historical evaluation, with web-name and accent-insensitive search fallbacks.
+
+### Player forecasting
+
+- Generate versioned statistical forecasts for up to six upcoming Gameweeks.
+- Estimate probability-weighted expected minutes from starts, minutes share, role, availability,
+  and substitute scenarios.
+- Model appearance, goals, assists, clean sheets, saves, bonus, deductions, and defensive
+  contributions using the 2026/27 FPL scoring rules.
+- Handle single, double, and blank Gameweeks.
+- Use team strength, fixture difficulty, home/away context, form, ICT, BPS, and bounded player
+  signals while retaining component-level explanations.
+- Show next-Gameweek and multi-Gameweek xPts, opponent context, start probability, confidence, and
+  source cutoff timestamps.
+
+### Betting-market integration
+
+- Import 1X2, over/under 2.5, both-teams-to-score, team totals, and goalscorer information.
+- De-vig bookmaker prices and estimate expected goals, clean-sheet probabilities, market
+  dispersion, fit residuals, and consensus quality.
+- Produce independent fixture and player market forecasts.
+- Blend statistical and market xPts from 0–100%, falling back to statistical forecasts where
+  market coverage is missing.
+- Refresh supported live odds through Odds-API.io or import odds manually through CSV and forms.
+- Retain cached market snapshots when a provider is unavailable.
+
+### Strategy and explainability
+
+- Use Balanced, Conservative, Aggressive, Value Hunter, Differential, or custom profiles.
+- Configure planning horizon, risk appetite, transfer reluctance, ownership preference, and
+  feature weights.
+- Score expected points, fixtures, minutes, form, value, value over replacement, attacking and
+  defensive potential, bonus, ceiling, consistency, rotation safety, injury safety, and
+  differential appeal.
+- Inspect normalized weights and the exact contribution of every feature to every player score.
+- Save named strategy profiles locally without altering the underlying forecasts.
+
+### Squad, lineup, and transfer optimization
+
+- Construct an optimal legal 15-player squad with the required positional quotas, a configurable
+  budget, no more than three players per club, and optional player locks or exclusions.
+- Save or edit the current squad with purchase prices, selling prices, bank, free transfers, and
+  chip availability.
+- Select the strongest legal starting XI, formation, ordered bench, captain, and vice-captain.
+- Compare rolling against the best exact one- and two-transfer plans.
+- Account for selling prices, available bank, free transfers, four-point hits, transfer reluctance,
+  squad legality, projected gain, and future flexibility.
+- Preserve reproducible solver inputs and constraint audits for saved optimization runs.
+
+### Multi-Gameweek planning
+
+- Optimize a connected two-to-six-Gameweek transfer path instead of treating each week in
+  isolation.
+- Jointly reason about transfers, squad composition, formation, starting XI, captaincy, bank, and
+  free-transfer state.
+- Compare immediate returns with longer fixture swings and the value of rolling.
+- Display weekly decisions, projected points, transfer costs, and the resulting squad path.
+
+### Simulation and uncertainty
+
+- Run 1,000–50,000 reproducible Monte Carlo simulations for the current squad.
+- Model player appearance, attacking returns, clean sheets, saves, bonus, deductions, and
+  defensive contributions.
+- Apply correlated team- and match-level shocks so teammates are not treated as independent.
+- Report means, medians, P10/P90 ranges, distributions, blank probabilities, return probabilities,
+  haul probabilities, and player-level outcome summaries.
+- Use explicit seeds so equivalent simulation inputs can be reproduced.
+
+### Chip planning
+
+- Evaluate Wildcard, Free Hit, Bench Boost, and Triple Captain opportunities across up to six
+  Gameweeks.
+- Optimize temporary or permanent squads, legal lineups, and captains for the relevant chip.
+- Compare projected chip gain, recommended timing, squad changes, and current availability.
+- Respect the current squad's selling value plus bank.
+
+### Historical evaluation and calibration
+
+- Import final player/Gameweek outcomes from CSV with atomic validation.
+- Match outcomes only to forecasts whose prediction time and input cutoff preceded the official
+  deadline.
+- Use chronological calibration and holdout windows to reduce information leakage.
+- Compare statistical, market, and blended MAE, RMSE, bias, correlation, positional accuracy,
+  calibration bands, and expected-minutes error.
+- Inspect blend-weight curves and retain recent evaluation summaries without automatically changing
+  live settings.
+
+### Player analytics
+
+- Filter the player universe by name, team, position, price, ownership, expected minutes, xPts,
+  risk, and strategy score without regenerating forecasts.
+- Compare two to five players in raw tables and position-aware radar charts.
+- Plot configurable 2×2 decision matrices with selectable populations, reference lines, quadrant
+  explanations, and presets for value, threat, minutes, ownership, and market disagreement.
+- Compare weekly and cumulative forecast paths, attacking and defensive fixture difficulty, and
+  component-level projections.
+- Send selections from the player explorer, decision matrix, current squad, or optimized squad into
+  the same comparison workspace.
+- Export analytics, forecast comparisons, changes, and diagnostics to CSV.
+
+### Watchlist and change detection
+
+- Maintain a persistent local player watchlist with personal notes.
+- Combine watchlist membership with the normal analytics filters and comparison workflow.
+- Compare the latest two official-data, statistical-forecast, market-forecast, and availability
+  snapshots.
+- Surface meaningful movements in xPts, expected minutes, price, ownership, market projections,
+  player status, and news.
+
+### Weekly decision dashboard
+
+- Refresh live evidence or explicitly reuse the current cache.
+- Combine optimized lineup, captaincy, transfer alternatives, future planning, simulation, and chip
+  analysis into one decision card.
+- Explain the recommendation, confidence, key risks, transfer path, scenario uncertainty, and data
+  freshness.
+- Keep the underlying engines distinct so conflicting evidence remains visible.
+
+### Model Lab
+
+- Inspect immutable model names, semantic versions, feature schemas, code revisions, safe
+  parameters, and forecast-row counts.
+- Test temporary statistical/market blend weights without changing active settings.
+- Explore expected-minutes distributions, market coverage, model disagreement, calibration,
+  backtests, and aggregate strategy feature influence.
+- Export player-level model diagnostics.
+- Explicitly exclude credentials, URLs, database connections, and local filesystem paths from the
+  displayed settings and exports.
+
+### What-if analysis
+
+- Override a player's start probability or mark one or more players unavailable.
+- Adjust a club's attacking environment while leaving defensive forecast components unchanged.
+- Protect current players from sale, force a sale, force a purchase, or exclude transfer targets.
+- Force Wildcard, Free Hit, Bench Boost, or Triple Captain timing within the selected horizon.
+- Re-score temporary assumptions and run the existing exact transfer and chip solvers.
+- Compare baseline and scenario decisions, squad xPts, transfer alternatives, forced-chip value,
+  and player-level forecast sensitivity.
+- Keep every scenario session-only; forecasts, team state, strategies, and normal run history are
+  not modified.
+
+## Typical workflow
+
+1. Refresh official FPL data.
+2. Generate forecasts from the sidebar.
+3. Optionally import or refresh bookmaker odds and choose market influence.
+4. Select or customize a strategy.
+5. Import the current FPL team or build an optimized initial squad.
+6. Optimize the next lineup and captaincy.
+7. Compare transfers and inspect the future planning path.
+8. Run simulations and evaluate chip opportunities.
+9. Use Weekly Dashboard for the consolidated decision.
+10. Use Player Analytics, Model Lab, and What-if Analysis when deeper investigation is needed.
+
+Every workspace can also be used independently when its required data is available.
+
+## Installation
+
+Requirements:
+
+- Python 3.12 or newer
+- Git
+
+Create an environment, install the project, initialize the database, and start Streamlit:
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 alembic upgrade head
 streamlit run frontend/streamlit_app.py
+```
 
-The Streamlit application will then run locally.
+Open [http://localhost:8501](http://localhost:8501).
 
-Docker
+On first run, use **Refresh FPL data** and then **Generate advanced forecasts** in the sidebar.
 
+## Configuration
+
+Settings use the `FPL_OPTIMIZER_` prefix and can be placed in a local `.env` file. The `.env` file,
+SQLite runtime files, and response caches are excluded from Git.
+
+| Setting | Purpose | Default |
+|---|---|---|
+| `FPL_OPTIMIZER_DATABASE_URL` | SQLAlchemy database connection | `sqlite:///data/fpl_optimizer.db` |
+| `FPL_OPTIMIZER_CACHE_DIR` | Provider-response cache directory | `data/cache` |
+| `FPL_OPTIMIZER_CACHE_TTL_SECONDS` | Official-data cache lifetime | `900` |
+| `FPL_OPTIMIZER_HTTP_TIMEOUT_SECONDS` | Provider request timeout | `15` |
+| `FPL_OPTIMIZER_LOG_LEVEL` | Application logging level | `INFO` |
+| `FPL_OPTIMIZER_ODDS_API_KEY` | Optional server-side Odds-API.io credential | unset |
+| `FPL_OPTIMIZER_ODDS_API_BASE_URL` | Odds provider endpoint | provider default |
+| `FPL_OPTIMIZER_ODDS_BOOKMAKERS` | Requested bookmaker list | `Bet365,Unibet,Pinnacle` |
+| `FPL_OPTIMIZER_ODDS_CACHE_TTL_SECONDS` | Odds response cache lifetime | `3600` |
+| `FPL_OPTIMIZER_ODDS_STALE_AFTER_SECONDS` | Live-odds freshness threshold | `7200` |
+
+The odds credential is used only by the backend and is not stored in SQLite. Provider account
+coverage and accepted bookmakers can vary by region and subscription; a rejected live request does
+not prevent manual odds import or statistical-only operation.
+
+## Docker
+
+Build and run the Streamlit application with a persistent data volume:
+
+```bash
 docker compose up --build
+```
 
-The application will be available at:
+Start the optional API as well:
 
-"http://localhost:8501"
+```bash
+docker compose --profile api up --build
+```
 
-Add "--profile api" to also start the optional local API on port "8000".
+Streamlit is exposed on port `8501`; the API is exposed on port `8000` when enabled.
 
----
+## Local API
 
-First Run
+Start the API directly with:
 
-On the first run:
-
-1. Refresh FPL data.
-2. The application downloads "bootstrap-static" and fixture information from the public FPL service.
-3. Open the application sidebar.
-4. Select Generate advanced forecasts.
-5. The application generates the current multi-Gameweek player projection.
-
-See "docs/model_card.md" for forecasting methodology, assumptions, and limitations.
-
----
-
-Developer API
-
-The application exposes an optional local API for programmatic access.
-
-Forecasting
-
-GET  /forecasts/statistical?market_weight=0.3
-GET  /forecasts/advanced?market_weight=0.3
-POST /forecasts/advanced/run
-
-Markets
-
-POST /markets/run?devig_method=multiplicative
-GET  /markets
-
-Strategy
-
-GET  /strategy/presets
-POST /strategy/score
-GET  /strategies
-POST /strategies
-
-Squad Optimization
-
-POST /optimizer/squad
-GET  /optimizer/runs
-
-Team & Lineup
-
-GET  /team/current
-PUT  /team/current
-POST /team/current/lineup
-GET  /team/current/lineup-runs
-
-Transfers
-
-POST /transfers/evaluate
-GET  /transfers/runs
-
-Multi-Gameweek Planning
-
-POST /planner/run
-GET  /planner/runs
-
-Simulation
-
-POST /simulation/run
-GET  /simulation/runs
-
-Chips
-
-POST /chips/evaluate
-GET  /chips/runs
-
-Backtesting
-
-POST /backtesting/outcomes/import
-GET  /backtesting/outcomes/count
-POST /backtesting/run
-GET  /backtesting/runs
-
-Live Team & Odds
-
-POST /team/import
-GET  /team/imported
-GET  /odds/live/status
-POST /odds/live/test
-POST /odds/live/refresh
-
----
-
-Development Commands
-
-Run tests:
-
-pytest
-
-Run linting:
-
-ruff check .
-
-Run type checking:
-
-mypy fpl_optimizer
-
-Start the local API:
-
+```bash
 uvicorn api.main:app --reload
+```
 
----
+Interactive OpenAPI documentation is available at
+[http://localhost:8000/docs](http://localhost:8000/docs).
 
-Architecture & Documentation
+Endpoint groups include:
 
-Detailed modelling and implementation documentation is available in the repository.
+- Health and data: `/health`, `/data/fpl/refresh`, `/players`, `/fixtures`
+- Forecasts and markets: `/forecasts/statistical`, `/forecasts/advanced`, `/markets`
+- Strategy and squads: `/strategy/presets`, `/strategy/score`, `/strategies`,
+  `/optimizer/squad`
+- Current team and lineup: `/team/current`, `/team/current/lineup`, `/team/import`
+- Decisions: `/transfers/evaluate`, `/planner/run`, `/simulation/run`, `/chips/evaluate`
+- Evaluation: `/backtesting/outcomes/import`, `/backtesting/run`
+- Live odds: `/odds/live/status`, `/odds/live/test`, `/odds/live/refresh`
 
-"DESIGN.md"
+The Streamlit application currently contains additional interactive analytics, dashboard, model,
+and scenario workspaces that are not exposed as API endpoints.
 
-Contains:
+## Architecture
 
-- System architecture
-- Modelling assumptions
-- Optimization design
-- Application architecture
-- Technical roadmap
-- Major design decisions
+```text
+frontend/                 Streamlit pages and shared presentation helpers
+api/                      Optional FastAPI transport
+fpl_optimizer/
+  analytics/              Cached player datasets, filters, comparisons, and matrices
+  backtesting/            Outcome parsing, calibration, and evaluation
+  data/                    Provider clients, cache, schemas, and team import
+  database/                SQLAlchemy models and repositories
+  domain/                  Framework-independent records
+  features/                Expected-minutes and fixture-strength features
+  forecasting/             Statistical and market projection logic
+  odds/                    Odds normalization, consensus, and providers
+  optimizer/               Squad, lineup, transfer, planner, and chip solvers
+  scoring/                 Strategy presets, normalization, and decomposition
+  services/                Application orchestration
+alembic/                   SQLite-compatible schema migrations
+tests/                     Unit and integration coverage
+docs/                      Model cards and workflow documentation
+```
 
-"docs/"
+The core models and solvers are independent of Streamlit and FastAPI. Services coordinate
+transaction boundaries, repositories own persistence, and adapters format the results for users.
 
-Contains model cards and detailed methodology for individual components, including:
+## Development and verification
 
-- Forecasting model
-- Market model
-- Strategy model
-- Squad optimizer
-- Transfer optimizer
-- Multi-Gameweek planner
-- Simulation engine
-- Chip evaluation
-- Backtesting
+Run the complete local checks before opening a pull request:
 
----
-
-Data & Licensing
-
-License: MIT
-
-The official FPL API is undocumented. Users should respect its applicable terms and should not assume that FPL data can be redistributed.
-
-Runtime cache and database files are excluded from version control.
-
-The application itself is designed around open-source components and local execution.
-
----
-
-Contributing
-
-Issues and pull requests are welcome.
-
-Before opening a pull request, run:
-
+```bash
 pytest
 ruff check .
 mypy fpl_optimizer
+```
 
-Tests, type checks, and linting are included in CI.
+The test suite covers forecasting components, scoring, legal squad and lineup constraints,
+transfer rules and hits, planning, simulation reproducibility, chips, historical leakage controls,
+analytics, watchlists, change detection, weekly decisions, Model Lab safety, and scenario behavior.
 
-See "DESIGN.md" and the "docs/" directory for architecture, design rationale, modelling assumptions, and implementation details.
+## Documentation
+
+Detailed methodology and limitations are maintained in `docs/`, including:
+
+- Statistical and advanced forecasting model cards
+- Market forecast methodology
+- Strategy-score explainability
+- Squad, lineup, transfer, planner, simulation, and chip models
+- Historical evaluation and leakage controls
+- Player naming, analytics, comparisons, matrices, watchlists, and change detection
+- Weekly decision dashboard
+- Model Lab
+- What-if analysis
+
+`DESIGN.md` contains the broader architecture, modeling assumptions, and major design decisions.
+
+## Data, privacy, and security
+
+- Application data stays in the configured local database and cache unless the user explicitly
+  calls an external provider.
+- API keys belong in `.env` or process environment variables, never in source files.
+- The repository ignores `.env`, database files, write-ahead logs, and caches.
+- Model Lab exposes only allow-listed settings and filtered model parameters.
+- CSV exports are created locally in the user's browser session.
+- The public FPL API is undocumented; users should respect its applicable terms and should not
+  assume that downloaded data can be redistributed.
+
+## Known limitations
+
+- Forecasts, simulations, and optimizer outputs are estimates rather than guarantees.
+- Live bookmaker coverage depends on provider availability, region, account permissions, and market
+  support.
+- Historical calibration quality depends on sufficient final outcomes and genuinely pre-deadline
+  forecast snapshots.
+- What-if start assumptions use an explicit starter/substitute minutes approximation rather than
+  retraining the expected-minutes model.
+- Chip comparisons optimize within the selected horizon and do not assign an external value to
+  saving a chip beyond that horizon.
+
+## License and contributions
+
+Licensed under the MIT License. Issues and pull requests are welcome. Please include tests for
+behavior changes and run the verification commands above before contributing.

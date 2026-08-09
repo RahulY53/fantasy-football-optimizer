@@ -20,6 +20,7 @@ from fpl_optimizer.services.model_lab import ModelLabService
 from fpl_optimizer.services.optimizer import SquadOptimizerService
 from fpl_optimizer.services.planner import MultiGameweekPlannerService
 from fpl_optimizer.services.refresh import RefreshService
+from fpl_optimizer.services.scenarios import WhatIfService
 from fpl_optimizer.services.simulation import SimulationService
 from fpl_optimizer.services.strategy import StrategyService
 from fpl_optimizer.services.team import CurrentTeamService
@@ -58,6 +59,7 @@ class AppContainer:
     changes: ChangeDetectionService
     weekly: WeeklyDecisionService
     model_lab: ModelLabService
+    what_if: WhatIfService
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> AppContainer:
@@ -137,6 +139,7 @@ class AppContainer:
             ChangeDetectionService(database),
             weekly_service,
             model_lab_service,
+            WhatIfService(database),
         )
 
     def close(self) -> None:

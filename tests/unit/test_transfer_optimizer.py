@@ -85,7 +85,7 @@ def test_transfer_reluctance_can_make_roll_the_best_decision() -> None:
     assert "flexibility" in result.rationale
 
 
-def test_transfer_optimizer_validates_current_squad_and_phase_limit() -> None:
+def test_transfer_optimizer_validates_current_squad_and_transfer_limit() -> None:
     with pytest.raises(ValueError, match="exactly 15"):
         evaluate_transfers(
             transfer_pool()[1:],
@@ -102,4 +102,38 @@ def test_transfer_optimizer_validates_current_squad_and_phase_limit() -> None:
             transfer_reluctance=50,
             horizon=3,
             max_transfers=3,
+        )
+
+
+def test_transfer_scenario_enforces_protect_sell_buy_and_exclude_rules() -> None:
+    result = evaluate_transfers(
+        transfer_pool(),
+        bank=0,
+        free_transfers=2,
+        transfer_reluctance=50,
+        horizon=3,
+        protected_player_ids={1},
+        must_sell_player_ids={3},
+        must_buy_player_ids={102},
+        excluded_player_ids={101},
+    )
+
+    assert result.plans
+    assert all(1 in plan.final_player_ids for plan in result.plans)
+    assert all(3 not in plan.final_player_ids for plan in result.plans)
+    assert all(102 in plan.final_player_ids for plan in result.plans)
+    assert all(101 not in plan.final_player_ids for plan in result.plans)
+    assert result.recommended_transfers > 0
+
+
+def test_transfer_scenario_rejects_contradictory_rules() -> None:
+    with pytest.raises(ValueError, match="both protected and marked must sell"):
+        evaluate_transfers(
+            transfer_pool(),
+            bank=0,
+            free_transfers=1,
+            transfer_reluctance=50,
+            horizon=3,
+            protected_player_ids={1},
+            must_sell_player_ids={1},
         )

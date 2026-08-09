@@ -13,8 +13,8 @@ st.title("Fantasy Premier League Optimizer")
 st.caption("A local-first forecasting and decision engine")
 
 st.success(
-    "Model Lab available: inspect cached model versions, blends, minutes, market disagreement, "
-    "calibration, and feature influence without changing live decisions."
+    "What-if analysis available: change temporary player, team, transfer, and chip assumptions "
+    "and compare the exact decision with the unchanged baseline."
 )
 
 with container.database.session() as session:
@@ -41,11 +41,11 @@ else:
         "squad in **Optimizer**, manage its lineup on **My Team**, then compare transfer plans "
         "on **Transfers**, build a future path on **Planner**, or open **Weekly Dashboard** for "
         "one consolidated recommendation. Advanced users can inspect the pipeline in "
-        "**Model Lab**."
+        "**Model Lab** or test assumptions in **What If**."
     )
 
 st.divider()
-st.subheader("Phase 1 capabilities")
+st.subheader("Data foundation")
 st.markdown(
     """
 - Resilient official FPL data refresh with atomic local caching
@@ -56,7 +56,7 @@ st.markdown(
 """
 )
 
-st.subheader("Phase 2 capabilities")
+st.subheader("Forecasting")
 st.markdown(
     """
 - Probability-weighted expected minutes with availability and confidence
@@ -66,7 +66,7 @@ st.markdown(
 """
 )
 
-st.subheader("Phases 3–12 capabilities")
+st.subheader("Decisions and analytics")
 st.markdown(
     """
 - Optional odds consensus, implied goals, market xPts, and statistical/market blending
@@ -81,5 +81,6 @@ st.markdown(
 - Wildcard, Free Hit, Bench Boost, and Triple Captain opportunity evaluation
 - Leakage-safe historical outcome imports, chronological backtesting, and blend calibration
 - Read-only model, blend, minutes, market, calibration, and feature-influence diagnostics
+- Session-only player, team, transfer-rule, and forced-chip what-if comparisons
 """
 )

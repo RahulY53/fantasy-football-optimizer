@@ -110,7 +110,7 @@ def data_sidebar(container: AppContainer) -> None:
         f"{active_strategy.mode.title()}"
     )
     st.sidebar.divider()
-    st.sidebar.caption("Live team import · Live odds · Phase 12 calibration")
+    st.sidebar.caption("Live team import · Live odds · Historical calibration")
 
 
 def format_timestamp(value: datetime) -> str:
