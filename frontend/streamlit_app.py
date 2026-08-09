@@ -13,8 +13,8 @@ st.title("Fantasy Premier League Optimizer")
 st.caption("A local-first forecasting and decision engine")
 
 st.success(
-    "Weekly Dashboard available: refresh the available evidence and combine lineup, transfer, "
-    "planner, simulation, and chip engines into one decision card."
+    "Model Lab available: inspect cached model versions, blends, minutes, market disagreement, "
+    "calibration, and feature influence without changing live decisions."
 )
 
 with container.database.session() as session:
@@ -40,7 +40,8 @@ else:
         "Generate forecasts from the sidebar, choose preferences on **Strategy**, build an initial "
         "squad in **Optimizer**, manage its lineup on **My Team**, then compare transfer plans "
         "on **Transfers**, build a future path on **Planner**, or open **Weekly Dashboard** for "
-        "one consolidated recommendation."
+        "one consolidated recommendation. Advanced users can inspect the pipeline in "
+        "**Model Lab**."
     )
 
 st.divider()
@@ -79,5 +80,6 @@ st.markdown(
 - Reproducible current-team Monte Carlo distributions with correlated club-level outcomes
 - Wildcard, Free Hit, Bench Boost, and Triple Captain opportunity evaluation
 - Leakage-safe historical outcome imports, chronological backtesting, and blend calibration
+- Read-only model, blend, minutes, market, calibration, and feature-influence diagnostics
 """
 )

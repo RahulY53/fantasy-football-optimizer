@@ -16,6 +16,7 @@ from fpl_optimizer.services.changes import ChangeDetectionService
 from fpl_optimizer.services.chips import ChipService
 from fpl_optimizer.services.forecast import ForecastService
 from fpl_optimizer.services.markets import MarketService, OddsImportService
+from fpl_optimizer.services.model_lab import ModelLabService
 from fpl_optimizer.services.optimizer import SquadOptimizerService
 from fpl_optimizer.services.planner import MultiGameweekPlannerService
 from fpl_optimizer.services.refresh import RefreshService
@@ -56,6 +57,7 @@ class AppContainer:
     watchlist: WatchlistService
     changes: ChangeDetectionService
     weekly: WeeklyDecisionService
+    model_lab: ModelLabService
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> AppContainer:
@@ -110,6 +112,7 @@ class AppContainer:
             simulation_service,
             chips_service,
         )
+        model_lab_service = ModelLabService(database, strategy, resolved)
         return cls(
             resolved,
             database,
@@ -133,6 +136,7 @@ class AppContainer:
             WatchlistService(database),
             ChangeDetectionService(database),
             weekly_service,
+            model_lab_service,
         )
 
     def close(self) -> None:

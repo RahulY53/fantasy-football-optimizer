@@ -47,6 +47,11 @@ transfer, multi-Gameweek planning, simulation, and chip outputs into one recomme
 transparent confidence and risk. See
 [docs/weekly_decision_dashboard.md](docs/weekly_decision_dashboard.md).
 
+The advanced **Model Lab** inspects immutable model versions, temporary forecast blends,
+expected-minutes behavior, market coverage and disagreement, historical calibration, and strategy
+feature influence. It is read-only and deliberately excludes secrets and local connection details.
+See [docs/model_lab.md](docs/model_lab.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.
