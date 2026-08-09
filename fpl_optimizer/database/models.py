@@ -108,6 +108,32 @@ class PlayerWatchlist(Base):
     player: Mapped[Player] = relationship()
 
 
+class PlayerAvailabilitySnapshot(Base):
+    """Timestamped FPL availability and news for change detection."""
+
+    __tablename__ = "player_availability_snapshot"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "data_snapshot_id", name="uq_player_availability_data_snapshot"
+        ),
+        Index(
+            "ix_player_availability_player_observed", "player_id", "observed_at"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(
+        ForeignKey("player.id", ondelete="CASCADE"), index=True
+    )
+    data_snapshot_id: Mapped[int] = mapped_column(ForeignKey("data_snapshot.id"))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(10))
+    news: Mapped[str] = mapped_column(Text, default="")
+    chance_next_round: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    player: Mapped[Player] = relationship()
+
+
 class PlayerSnapshot(Base):
     """Timestamped current-season player metrics."""
 

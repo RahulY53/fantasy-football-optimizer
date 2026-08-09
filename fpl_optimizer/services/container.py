@@ -12,6 +12,7 @@ from fpl_optimizer.database.base import Database
 from fpl_optimizer.odds.providers.odds_api_io import OddsApiIoProvider
 from fpl_optimizer.services.analytics import PlayerAnalyticsService
 from fpl_optimizer.services.backtesting import BacktestService
+from fpl_optimizer.services.changes import ChangeDetectionService
 from fpl_optimizer.services.chips import ChipService
 from fpl_optimizer.services.forecast import ForecastService
 from fpl_optimizer.services.markets import MarketService, OddsImportService
@@ -52,6 +53,7 @@ class AppContainer:
     update_team: TeamUpdateService
     analytics: PlayerAnalyticsService
     watchlist: WatchlistService
+    changes: ChangeDetectionService
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> AppContainer:
@@ -115,6 +117,7 @@ class AppContainer:
             ),
             PlayerAnalyticsService(database, strategy),
             WatchlistService(database),
+            ChangeDetectionService(database),
         )
 
     def close(self) -> None:

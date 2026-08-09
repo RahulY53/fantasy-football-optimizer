@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import cast
 
 import pandas as pd
@@ -24,6 +25,7 @@ from shared import (
     format_timestamp,
     load_player_analytics,
     load_player_forecast_details,
+    market_weight,
     page_setup,
     require_data,
 )
@@ -54,6 +56,7 @@ from fpl_optimizer.analytics.matrix import (
 from fpl_optimizer.analytics.metrics import metric_definition
 from fpl_optimizer.database.forecast_repository import ForecastRepository
 from fpl_optimizer.database.repositories import FplRepository
+from fpl_optimizer.domain.changes import PlayerChange
 
 
 def _column_config() -> dict[str, object]:
@@ -130,6 +133,54 @@ EXPLORER_COLUMNS = (
     "Status",
 )
 
+
+def _change_row(change: PlayerChange) -> dict[str, object]:
+    """Convert one change record into stable export and table labels."""
+
+    return {
+        "Full Name": change.full_name,
+        "Team": change.team,
+        "Position": change.position,
+        "Watchlist": "Yes" if change.watchlisted else "",
+        "Changes": ", ".join(change.change_types),
+        "Blended xPts": change.blended_xpts,
+        "xPts Δ": change.blended_xpts_delta,
+        "3GW xPts": change.xpts_3gw,
+        "3GW Δ": change.xpts_3gw_delta,
+        "5GW xPts": change.xpts_5gw,
+        "5GW Δ": change.xpts_5gw_delta,
+        "Expected minutes": change.expected_minutes,
+        "Minutes Δ": change.expected_minutes_delta,
+        "Market xPts": change.market_xpts,
+        "Market Δ": change.market_xpts_delta,
+        "Goal probability %": (
+            change.goal_probability * 100.0
+            if change.goal_probability is not None
+            else None
+        ),
+        "Goal probability Δ": (
+            change.goal_probability_delta * 100.0
+            if change.goal_probability_delta is not None
+            else None
+        ),
+        "Price": change.price,
+        "Price Δ": change.price_delta,
+        "Ownership %": change.ownership,
+        "Ownership Δ": change.ownership_delta,
+        "Previous status": change.status_before,
+        "Status": change.status,
+        "Chance next GW %": change.chance_next_round,
+        "Previous news": change.news_before,
+        "News": change.news,
+    }
+
+
+def _change_timestamp(value: datetime) -> str:
+    """Show seconds so rapid consecutive local refreshes remain distinguishable."""
+
+    aware = value if value.tzinfo else value.replace(tzinfo=UTC)
+    return aware.astimezone(UTC).strftime("%d %b %Y, %H:%M:%S UTC")
+
 container = page_setup("Player Analytics", "🔎")
 st.title("Player Analytics")
 st.caption("Explore players, compare raw forecasts, and inspect favorable 0–100 percentiles")
@@ -158,6 +209,7 @@ all_player_ids = {record.player_id for record in records}
 watchlist_entries = container.watchlist.entries()
 watchlist_by_id = {entry.player_id: entry for entry in watchlist_entries}
 watchlist_ids = frozenset(watchlist_by_id)
+change_report = container.changes.report(market_weight(), watchlist_ids)
 watchlist_flash = st.session_state.pop("analytics_watchlist_flash", None)
 if watchlist_flash:
     st.success(str(watchlist_flash))
@@ -205,8 +257,8 @@ selected_ids = st.multiselect(
 )
 selected = tuple(record for record in records if record.player_id in selected_ids)
 
-explorer_tab, compare_tab, matrix_tab, forecast_tab, watchlist_tab = st.tabs(
-    ["Explorer", "Compare", "2×2 Matrix", "Forecast", "Watchlist"],
+explorer_tab, compare_tab, matrix_tab, forecast_tab, changes_tab, watchlist_tab = st.tabs(
+    ["Explorer", "Compare", "2×2 Matrix", "Forecast", "Changes", "Watchlist"],
     default="Compare" if handoff is not None else "Explorer",
     key=ANALYTICS_TABS_KEY,
     on_change="rerun",
@@ -717,6 +769,217 @@ with forecast_tab:
                 mime="text/csv",
                 key="analytics_forecast_csv",
             )
+
+with changes_tab:
+    st.subheader("What changed since the last update?")
+    st.caption(
+        "Compares the latest two stored observations from official FPL, the statistical model, "
+        "and player-level market forecasts. Opening this view never reruns a model."
+    )
+    comparable_windows = [window for window in change_report.windows if window.comparable]
+    for window in change_report.windows:
+        if window.comparable and window.previous_at and window.current_at:
+            st.caption(
+                f"**{window.source}:** {_change_timestamp(window.previous_at)} → "
+                f"{_change_timestamp(window.current_at)}"
+            )
+        elif window.current_at:
+            st.caption(
+                f"**{window.source}:** baseline saved at "
+                f"{_change_timestamp(window.current_at)}; one more update is needed."
+            )
+
+    if not change_report.has_baseline:
+        st.info(
+            "A baseline exists, but there is not yet a second stored update to compare. Refresh "
+            "FPL data or regenerate forecasts after inputs change, then return here."
+        )
+    elif not change_report.changes:
+        st.success("No material player changes were found between the latest stored updates.")
+    else:
+        filter_columns = st.columns([1, 2])
+        changes_watchlist_only = filter_columns[0].toggle(
+            "Watchlist only",
+            key="analytics_changes_watchlist_only",
+            disabled=not watchlist_ids,
+        )
+        available_change_types = sorted(
+            {
+                change_type
+                for change in change_report.changes
+                for change_type in change.change_types
+            }
+        )
+        selected_change_types = filter_columns[1].multiselect(
+            "Change types",
+            available_change_types,
+            default=available_change_types,
+            key="analytics_change_types",
+        )
+        visible_changes = tuple(
+            change
+            for change in change_report.changes
+            if (not changes_watchlist_only or change.watchlisted)
+            and any(kind in selected_change_types for kind in change.change_types)
+        )
+
+        xpts_changes = [
+            change
+            for change in visible_changes
+            if "xPts" in change.change_types and change.blended_xpts_delta is not None
+        ]
+        minutes_changes = [
+            change
+            for change in visible_changes
+            if "Minutes" in change.change_types
+            and change.expected_minutes_delta is not None
+        ]
+        market_changes = [
+            change
+            for change in visible_changes
+            if "Market" in change.change_types and change.market_xpts_delta is not None
+        ]
+        availability_count = sum(
+            "Availability" in change.change_types for change in visible_changes
+        )
+        biggest_rise = max(
+            [change for change in xpts_changes if (change.blended_xpts_delta or 0.0) > 0],
+            key=lambda change: change.blended_xpts_delta or 0.0,
+            default=None,
+        )
+        biggest_drop = min(
+            [change for change in xpts_changes if (change.blended_xpts_delta or 0.0) < 0],
+            key=lambda change: change.blended_xpts_delta or 0.0,
+            default=None,
+        )
+        biggest_minutes = max(
+            minutes_changes,
+            key=lambda change: abs(change.expected_minutes_delta or 0.0),
+            default=None,
+        )
+        biggest_market = max(
+            market_changes,
+            key=lambda change: abs(change.market_xpts_delta or 0.0),
+            default=None,
+        )
+
+        summary_columns = st.columns(5)
+        summary_columns[0].metric(
+            "Largest xPts rise",
+            biggest_rise.full_name if biggest_rise else "—",
+            (
+                f"{biggest_rise.blended_xpts_delta:+.2f} pts"
+                if biggest_rise and biggest_rise.blended_xpts_delta is not None
+                else None
+            ),
+        )
+        summary_columns[1].metric(
+            "Largest xPts drop",
+            biggest_drop.full_name if biggest_drop else "—",
+            (
+                f"{biggest_drop.blended_xpts_delta:+.2f} pts"
+                if biggest_drop and biggest_drop.blended_xpts_delta is not None
+                else None
+            ),
+            delta_color="inverse",
+        )
+        summary_columns[2].metric(
+            "Largest minutes move",
+            biggest_minutes.full_name if biggest_minutes else "—",
+            (
+                f"{biggest_minutes.expected_minutes_delta:+.0f} min"
+                if biggest_minutes
+                and biggest_minutes.expected_minutes_delta is not None
+                else None
+            ),
+        )
+        summary_columns[3].metric(
+            "Largest market move",
+            biggest_market.full_name if biggest_market else "—",
+            (
+                f"{biggest_market.market_xpts_delta:+.2f} pts"
+                if biggest_market and biggest_market.market_xpts_delta is not None
+                else None
+            ),
+        )
+        summary_columns[4].metric("Availability updates", availability_count)
+
+        if not visible_changes:
+            st.info("No players match the selected change filters.")
+        else:
+            change_frame = pd.DataFrame(_change_row(change) for change in visible_changes)
+            change_columns = [
+                "Full Name",
+                "Team",
+                "Position",
+                "Watchlist",
+                "Changes",
+                "Blended xPts",
+                "xPts Δ",
+                "5GW xPts",
+                "5GW Δ",
+                "Expected minutes",
+                "Minutes Δ",
+                "Market xPts",
+                "Market Δ",
+                "Price",
+                "Price Δ",
+                "Ownership %",
+                "Ownership Δ",
+                "Previous status",
+                "Status",
+                "Chance next GW %",
+                "News",
+            ]
+            change_column_config = {
+                **_column_config(),
+                "xPts Δ": st.column_config.NumberColumn(format="%+.2f"),
+                "5GW Δ": st.column_config.NumberColumn(format="%+.2f"),
+                "Minutes Δ": st.column_config.NumberColumn(format="%+.0f"),
+                "Market Δ": st.column_config.NumberColumn(format="%+.2f"),
+                "Price Δ": st.column_config.NumberColumn(format="%+.1f"),
+                "Ownership Δ": st.column_config.NumberColumn(format="%+.1f%%"),
+            }
+            st.dataframe(
+                change_frame[change_columns],
+                hide_index=True,
+                width="stretch",
+                column_config=change_column_config,
+            )
+
+            changed_labels = {
+                change.player_id: f"{change.full_name} · {change.team} · {change.position}"
+                for change in visible_changes
+            }
+            changed_player_ids = st.multiselect(
+                "Select changed players",
+                options=list(changed_labels),
+                format_func=lambda player_id: changed_labels[player_id],
+                max_selections=5,
+                key="analytics_changed_player_ids",
+            )
+            action_columns = st.columns(2)
+            if action_columns[0].button(
+                "Open selected in Compare",
+                disabled=not changed_player_ids,
+                key="analytics_changes_compare",
+                width="stretch",
+            ):
+                queue_compare_players(changed_player_ids, "Changes")
+                st.rerun()
+            action_columns[1].download_button(
+                "Download changes (CSV)",
+                change_frame.to_csv(index=False),
+                file_name="fpl-player-changes.csv",
+                mime="text/csv",
+                key="analytics_changes_csv",
+                width="stretch",
+            )
+        st.caption(
+            f"{len(visible_changes)} material player change(s) across "
+            f"{len(comparable_windows)} comparable source(s). Small numeric movements are "
+            "suppressed to keep the report actionable."
+        )
 
 with watchlist_tab:
     st.subheader("Persistent player Watchlist")

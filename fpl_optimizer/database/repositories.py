@@ -14,6 +14,7 @@ from fpl_optimizer.database.models import (
     Fixture,
     Gameweek,
     Player,
+    PlayerAvailabilitySnapshot,
     PlayerSnapshot,
     Team,
 )
@@ -119,6 +120,24 @@ class FplRepository:
             player_row.snapshot_id = snapshot.id
             self.session.add(player_row)
             self.session.flush()
+
+            existing_availability = self.session.scalar(
+                select(PlayerAvailabilitySnapshot).where(
+                    PlayerAvailabilitySnapshot.player_id == player_row.id,
+                    PlayerAvailabilitySnapshot.data_snapshot_id == snapshot.id,
+                )
+            )
+            if existing_availability is None:
+                self.session.add(
+                    PlayerAvailabilitySnapshot(
+                        player_id=player_row.id,
+                        data_snapshot_id=snapshot.id,
+                        observed_at=snapshot.retrieved_at,
+                        status=player_item.status,
+                        news=player_item.news,
+                        chance_next_round=player_item.chance_next_round,
+                    )
+                )
 
             existing_snapshot = self.session.scalar(
                 select(PlayerSnapshot).where(

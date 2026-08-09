@@ -37,6 +37,11 @@ The local SQLite-backed Player Watchlist tracks current forecast and decision me
 combined Watchlist filtering and personal notes, and feeds watched players into Compare. See
 [docs/player_watchlist.md](docs/player_watchlist.md).
 
+The **Changes** view compares the latest two stored FPL, statistical, and market observations to
+surface meaningful xPts, minutes, price, ownership, market, and availability movements—with
+Watchlist filtering, Compare handoff, and CSV export. See
+[docs/player_change_detection.md](docs/player_change_detection.md).
+
 Overview
 
 FPL Optimizer combines statistical forecasting, bookmaker market signals, optimization, and simulation to support decisions across an FPL season.
