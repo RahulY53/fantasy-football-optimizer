@@ -15,12 +15,10 @@ from shared import (
 
 from fpl_optimizer.services.weekly import WeeklyDecisionReport
 
-container = page_setup("Weekly Dashboard", "📋")
-st.title("Weekly Decision Dashboard")
-st.caption(
-    "Refresh the available evidence, optimize the current team, and turn every engine into one "
-    "clear weekly decision."
-)
+container = page_setup("This Week", "📋")
+st.markdown('<div class="fpl-kicker">Your decision</div>', unsafe_allow_html=True)
+st.title("This week")
+st.caption("One recommended action, with the lineup and evidence behind it.")
 
 team = container.team.get()
 published = container.team_import.get_summary()
@@ -42,80 +40,71 @@ team_signature = (
 )
 signature = (team_signature, asdict(profile), blend)
 
-context_columns = st.columns(6)
-context_columns[0].metric(
-    "Team",
-    published.team_name if published else team.name,
-)
-context_columns[1].metric(
-    "Overall rank",
-    f"{published.overall_rank:,}" if published and published.overall_rank else "—",
-)
-context_columns[2].metric("Bank", f"£{team.bank:.1f}m")
-context_columns[3].metric("Free transfers", team.free_transfers)
-context_columns[4].metric("Strategy", profile.preset)
-context_columns[5].metric("Market influence", f"{blend:.0%}")
+st.markdown(f"### {published.team_name if published else team.name}")
+context_columns = st.columns(3)
+context_columns[0].metric("Bank", f"£{team.bank:.1f}m")
+context_columns[1].metric("Free transfers", team.free_transfers)
+context_columns[2].metric("Strategy", profile.preset)
+rank = f"{published.overall_rank:,}" if published and published.overall_rank else "not available"
+st.caption(f"Overall rank {rank} · market influence {blend:.0%}")
 
-st.subheader("Build this week's decision")
-action_columns = st.columns([2, 1])
-live_disabled = published is None or published.published_gameweek == 0
-if action_columns[0].button(
-    "Update & optimize my team",
-    type="primary",
-    width="stretch",
-    disabled=live_disabled,
-    help=(
-        "Refreshes official FPL data, the public squad, forecasts, and live odds before running "
-        "lineup, transfers, planning, simulation, and chip analysis."
-    ),
-):
-    try:
-        if published is None:
-            raise RuntimeError("Import a public FPL Team ID on My Team first")
-        with st.spinner(
-            "Refreshing evidence and running lineup, transfer, planning, simulation, and chip "
-            "engines…"
-        ):
-            report = container.weekly.run_live(
-                published.fpl_team_id,
-                profile,
-                blend,
-            )
-        st.session_state["weekly_decision"] = {
-            "signature": signature,
-            "report": report,
-        }
-        st.rerun()
-    except (RuntimeError, ValueError) as error:
-        st.error(str(error))
+with st.container(border=True):
+    st.markdown("### Build your recommendation")
+    st.write("Refresh everything for the newest view, or use saved data for a faster result.")
+    action_columns = st.columns([2, 1])
+    live_disabled = published is None or published.published_gameweek == 0
+    if action_columns[0].button(
+        "Refresh & build decision",
+        type="primary",
+        width="stretch",
+        disabled=live_disabled,
+        help=(
+            "Refreshes FPL data, your public squad, forecasts, and available odds before running "
+            "the decision engines."
+        ),
+    ):
+        try:
+            if published is None:
+                raise RuntimeError("Import a public FPL Team ID on My Team first")
+            with st.spinner("Updating your team and building this week's recommendation…"):
+                report = container.weekly.run_live(
+                    published.fpl_team_id,
+                    profile,
+                    blend,
+                )
+            st.session_state["weekly_decision"] = {
+                "signature": signature,
+                "report": report,
+            }
+            st.rerun()
+        except (RuntimeError, ValueError) as error:
+            st.error(str(error))
 
-if action_columns[1].button(
-    "Use cached data",
-    width="stretch",
-    help="Runs every decision engine using the latest locally cached inputs without network calls.",
-):
-    try:
-        with st.spinner(
-            "Running lineup, transfer, planning, simulation, and chip engines from cached data…"
-        ):
-            report = container.weekly.run_cached(profile, blend)
-        st.session_state["weekly_decision"] = {
-            "signature": signature,
-            "report": report,
-        }
-        st.rerun()
-    except (RuntimeError, ValueError) as error:
-        st.error(str(error))
+    if action_columns[1].button(
+        "Use saved data",
+        width="stretch",
+        help="Builds the recommendation from the latest local data without network calls.",
+    ):
+        try:
+            with st.spinner("Building your recommendation from saved data…"):
+                report = container.weekly.run_cached(profile, blend)
+            st.session_state["weekly_decision"] = {
+                "signature": signature,
+                "report": report,
+            }
+            st.rerun()
+        except (RuntimeError, ValueError) as error:
+            st.error(str(error))
 
-if live_disabled:
-    st.caption(
-        "The live workflow unlocks after a public Gameweek squad is available. Cached analysis "
-        "works with any locally saved team."
-    )
+    if live_disabled:
+        st.caption(
+            "Live refresh unlocks once a public Gameweek squad is available. Saved-data analysis "
+            "still works with a manually created team."
+        )
 
 stored = st.session_state.get("weekly_decision")
 if not isinstance(stored, dict):
-    st.info("Choose an update mode to generate the first weekly decision card.")
+    st.info("Build a recommendation to see your action, lineup, captain, and alternatives here.")
     st.stop()
 if stored.get("signature") != signature:
     st.warning(

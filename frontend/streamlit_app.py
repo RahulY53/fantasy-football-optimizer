@@ -1,86 +1,107 @@
-"""FPL Optimizer landing page and capability overview."""
+"""State-aware FPL Optimizer command centre."""
 
 from __future__ import annotations
 
 import streamlit as st
-from shared import page_setup
+from shared import active_strategy_profile, format_timestamp, page_setup
 
+from fpl_optimizer.database.forecast_repository import ForecastRepository
 from fpl_optimizer.database.repositories import FplRepository
 
 container = page_setup("Home", "⚽")
 
-st.title("Fantasy Premier League Optimizer")
-st.caption("A local-first forecasting and decision engine")
-
-st.success(
-    "What-if analysis available: change temporary player, team, transfer, and chip assumptions "
-    "and compare the exact decision with the unchanged baseline."
-)
+st.markdown('<div class="fpl-kicker">Gameweek command centre</div>', unsafe_allow_html=True)
+st.title("Make the next FPL decision")
+st.caption("Update your squad, get one recommendation, then inspect the evidence only if needed.")
 
 with container.database.session() as session:
     repository = FplRepository(session)
     counts = repository.counts()
     freshness = repository.freshness()
+    forecast_freshness = ForecastRepository(session).latest_prediction_at()
+
+team = container.team.get()
+published = container.team_import.get_summary()
+profile = active_strategy_profile()
 
 if not counts["players"]:
-    st.subheader("Start with official FPL data")
-    st.write(
-        "Refresh from the sidebar to build your local player, team, Gameweek, and fixture "
-        "database. The app caches successful downloads for offline use."
-    )
+    with st.container(border=True):
+        st.subheader("Start with official FPL data")
+        st.write("Open **Data & model settings** in the sidebar and refresh FPL data.")
+        st.caption("Successful downloads are cached locally for offline use.")
+elif team is None:
+    with st.container(border=True):
+        st.markdown("### Your next step")
+        st.subheader("Connect or create your team")
+        st.write("Import your public FPL Team ID, or manually save a legal 15-player squad.")
+        st.page_link("pages/0_My_Team.py", label="Set up My Team", icon="⚽")
 else:
-    cols = st.columns(4)
-    cols[0].metric("Players", counts["players"])
-    cols[1].metric("Teams", counts["teams"])
-    cols[2].metric("Gameweeks", counts["gameweeks"])
-    cols[3].metric("Fixtures", counts["fixtures"])
+    identity = published.team_name if published else team.name
+    st.markdown(f"### {identity}")
+    if published:
+        st.caption(f"Managed by {published.manager_name}")
+    status_cols = st.columns(3)
+    status_cols[0].metric("Bank", f"£{team.bank:.1f}m")
+    status_cols[1].metric("Free transfers", team.free_transfers)
+    status_cols[2].metric("Strategy", profile.preset)
 
-    st.success("Your local FPL data foundation is ready.")
+    with st.container(border=True):
+        st.markdown("### Ready for this Gameweek")
+        st.write(
+            "Build one consolidated recommendation for transfers, lineup, captaincy, chips, "
+            "and the next few Gameweeks."
+        )
+        action_cols = st.columns([2, 1, 1])
+        with action_cols[0]:
+            st.page_link(
+                "pages/14_Weekly_Dashboard.py",
+                label="Open this week's decision",
+                icon="📋",
+                use_container_width=True,
+            )
+        with action_cols[1]:
+            st.page_link(
+                "pages/7_Transfers.py",
+                label="Transfers",
+                icon="🔁",
+                use_container_width=True,
+            )
+        with action_cols[2]:
+            st.page_link(
+                "pages/0_My_Team.py",
+                label="My Team",
+                icon="⚽",
+                use_container_width=True,
+            )
+
+st.subheader("The weekly workflow")
+workflow_cols = st.columns(3)
+with workflow_cols[0].container(border=True):
+    st.markdown("#### 1 · Update")
+    st.write("Refresh your public squad and the latest available evidence.")
+with workflow_cols[1].container(border=True):
+    st.markdown("#### 2 · Decide")
+    st.write("Get one clear action, optimized XI, and captain recommendation.")
+with workflow_cols[2].container(border=True):
+    st.markdown("#### 3 · Explore")
+    st.write("Open transfers, forecasts, or scenarios only when you need more detail.")
+
+with st.expander("Data readiness"):
+    readiness_cols = st.columns(4)
+    readiness_cols[0].metric("Players", counts["players"])
+    readiness_cols[1].metric("Fixtures", counts["fixtures"])
+    readiness_cols[2].metric("Official data", "Ready" if freshness else "Missing")
+    readiness_cols[3].metric("Forecasts", "Ready" if forecast_freshness else "Missing")
+    if freshness:
+        st.caption(f"Official data updated {format_timestamp(freshness)}")
+    if forecast_freshness:
+        st.caption(f"Forecasts generated {format_timestamp(forecast_freshness)}")
+
+with st.expander("What is included in the model?"):
     st.write(
-        "Generate forecasts from the sidebar, choose preferences on **Strategy**, build an initial "
-        "squad in **Optimizer**, manage its lineup on **My Team**, then compare transfer plans "
-        "on **Transfers**, build a future path on **Planner**, or open **Weekly Dashboard** for "
-        "one consolidated recommendation. Advanced users can inspect the pipeline in "
-        "**Model Lab** or test assumptions in **What If**."
+        "Expected minutes, goals, assists, clean sheets, saves, defensive contributions, bonus, "
+        "deductions, fixtures, market signals, transfer costs, squad rules, chips, and uncertainty."
     )
-
-st.divider()
-st.subheader("Data foundation")
-st.markdown(
-    """
-- Resilient official FPL data refresh with atomic local caching
-- Timestamped SQLite snapshots and repeatable upserts
-- Searchable player browser with availability and performance data
-- Fixture browser with Gameweek, difficulty, scheduling, blanks, and results
-- Graceful cached fallback when the live service is unavailable
-"""
-)
-
-st.subheader("Forecasting")
-st.markdown(
-    """
-- Probability-weighted expected minutes with availability and confidence
-- 2026/27 goal, assist, clean-sheet, save, defensive-contribution, bonus, and deduction scoring
-- Statistical xPts across the next six Gameweeks, including blanks and doubles
-- Versioned forecasts with source cutoff timestamps and plain-language limitations
-"""
-)
-
-st.subheader("Decisions and analytics")
-st.markdown(
-    """
-- Optional odds consensus, implied goals, market xPts, and statistical/market blending
-- Simple and Advanced strategy profiles with presets and explainable player utility scores
-- Legal 15-player initial-squad optimization with budget, club, lock, and exclusion constraints
-- Persistent current squad with prices, bank, transfers, and chip availability
-- Exact next-Gameweek formation, starting XI, captain, vice-captain, and bench optimization
-- Exact roll, one-transfer, and two-transfer comparisons with bank, free-transfer, and hit costs
-- Joint multi-Gameweek transfer, formation, lineup, captain, bank, and free-transfer planning
-- BTTS, team totals, goalscorer odds, richer FPL signals, and improved expected minutes
-- Reproducible current-team Monte Carlo distributions with correlated club-level outcomes
-- Wildcard, Free Hit, Bench Boost, and Triple Captain opportunity evaluation
-- Leakage-safe historical outcome imports, chronological backtesting, and blend calibration
-- Read-only model, blend, minutes, market, calibration, and feature-influence diagnostics
-- Session-only player, team, transfer-rule, and forced-chip what-if comparisons
-"""
-)
+    st.caption(
+        "Advanced analysis remains available under Explore and Advanced tools in the sidebar."
+    )

@@ -18,8 +18,9 @@ from shared import (
 from fpl_optimizer.domain.team import CurrentTeamInput, CurrentTeamPlayerInput
 
 container = page_setup("My Team", "⚽")
+st.markdown('<div class="fpl-kicker">Squad setup</div>', unsafe_allow_html=True)
 st.title("My Team")
-st.caption("Manage your current 15-player squad and optimize the next-Gameweek lineup")
+st.caption("Connect your FPL team, confirm its details, and optimize the next lineup.")
 
 existing = container.team.get()
 choices = container.team.player_choices()
@@ -27,66 +28,56 @@ choice_by_id = {int(row["Player ID"]): row for row in choices}
 latest_optimized = container.team.latest_optimized_input()
 published = container.team_import.get_summary()
 
-st.subheader("Import FPL Team")
-import_cols = st.columns([2, 1, 1, 1])
-team_id = import_cols[0].number_input(
-    "FPL Team ID",
-    min_value=1,
-    step=1,
-    value=published.fpl_team_id if published else 1,
-    help="Imports the latest squad published through the public FPL Gameweek endpoint.",
-)
-if import_cols[1].button("Import team", type="primary", width="stretch"):
-    try:
-        with st.spinner("Loading the latest published Gameweek squad…"):
-            imported_summary = container.team_import.import_team(int(team_id))
-        st.session_state.pop("lineup_result", None)
-        if imported_summary.published_gameweek:
-            st.success("Published squad imported and saved.")
-        else:
-            st.success(
-                "Team ID verified and saved. The squad will become public after the first deadline."
-            )
-        st.rerun()
-    except (RuntimeError, ValueError) as error:
-        st.error(str(error))
-if import_cols[2].button("Refresh team", disabled=published is None, width="stretch"):
-    try:
-        container.team_import.import_team(int(team_id), force=True)
-        st.session_state.pop("lineup_result", None)
-        st.rerun()
-    except (RuntimeError, ValueError) as error:
-        st.error(str(error))
-if import_cols[3].button(
-    "Update my team",
-    width="stretch",
-    disabled=published is not None and published.published_gameweek == 0,
-):
-    try:
-        with st.spinner("Updating FPL data, squad, odds, forecasts, and recommendations…"):
-            update = container.update_team.run(
-                int(team_id), active_strategy_profile(), market_weight()
-            )
-        st.session_state["lineup_result"] = {"signature": None, "report": update.lineup}
-        st.session_state["team_update_report"] = update
-        st.success("Team and recommendations updated.")
-        st.rerun()
-    except (RuntimeError, ValueError) as error:
-        st.error(str(error))
+with st.expander("Connect or change FPL Team ID", expanded=published is None):
+    import_cols = st.columns([2, 1, 1])
+    team_id = import_cols[0].number_input(
+        "FPL Team ID",
+        min_value=1,
+        step=1,
+        value=published.fpl_team_id if published else 1,
+        help="Imports the latest squad published through the public FPL Gameweek endpoint.",
+    )
+    if import_cols[1].button(
+        "Import team",
+        type="primary" if published is None else "secondary",
+        width="stretch",
+    ):
+        try:
+            with st.spinner("Loading the latest published Gameweek squad…"):
+                imported_summary = container.team_import.import_team(int(team_id))
+            st.session_state.pop("lineup_result", None)
+            if imported_summary.published_gameweek:
+                st.success("Published squad imported and saved.")
+            else:
+                st.success(
+                    "Team ID verified. The squad becomes public after the first deadline."
+                )
+            st.rerun()
+        except (RuntimeError, ValueError) as error:
+            st.error(str(error))
+    if import_cols[2].button(
+        "Refresh squad", disabled=published is None, width="stretch"
+    ):
+        try:
+            container.team_import.import_team(int(team_id), force=True)
+            st.session_state.pop("lineup_result", None)
+            st.rerun()
+        except (RuntimeError, ValueError) as error:
+            st.error(str(error))
 
 published = container.team_import.get_summary()
 if published is not None:
-    status_cols = st.columns(6)
-    status_cols[0].metric("Manager", published.manager_name)
-    status_cols[1].metric("Team", published.team_name)
-    status_cols[2].metric(
+    st.markdown(f"### {published.team_name}")
+    st.caption(f"Managed by {published.manager_name}")
+    status_cols = st.columns(4)
+    status_cols[0].metric(
         "Overall rank", f"{published.overall_rank:,}" if published.overall_rank else "—"
     )
-    status_cols[3].metric("Total points", f"{published.total_points:,}")
-    status_cols[4].metric(
+    status_cols[1].metric("Total points", f"{published.total_points:,}")
+    status_cols[2].metric(
         "Squad value", f"£{published.squad_value:.1f}m" if published.squad_value else "—"
     )
-    status_cols[5].metric("Bank", f"£{published.bank:.1f}m")
+    status_cols[3].metric("Bank", f"£{published.bank:.1f}m")
     if published.published_gameweek:
         st.warning(
             f"Team status: **{published.data_status}** for GW{published.published_gameweek}. "
@@ -125,7 +116,7 @@ if published is not None:
             }
         )
     if role_rows:
-        with st.expander("Published squad, captain, and bench", expanded=True):
+        with st.expander("Published squad, captain, and bench"):
             st.dataframe(pd.DataFrame(role_rows), hide_index=True, width="stretch")
     if published.recent_transfers:
         with st.expander("Previous transfers"):

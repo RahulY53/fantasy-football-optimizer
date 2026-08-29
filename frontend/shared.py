@@ -30,13 +30,88 @@ def get_container() -> AppContainer:
 def page_setup(title: str, icon: str) -> AppContainer:
     """Set consistent page chrome and return the application container."""
 
-    st.set_page_config(page_title=f"{title} · FPL Optimizer", page_icon=icon, layout="wide")
+    st.set_page_config(
+        page_title=f"{title} · FPL Optimizer",
+        page_icon=icon,
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
     st.markdown(
         """
         <style>
-        .block-container {padding-top: 2rem; padding-bottom: 3rem;}
-        [data-testid="stMetric"] {background: #f5f7f9; border-radius: 0.75rem; padding: 1rem;}
-        .freshness {color: #5f6b76; font-size: 0.88rem;}
+        :root {
+            --fpl-ink: #14241c;
+            --fpl-muted: #66736c;
+            --fpl-surface: #ffffff;
+            --fpl-canvas: #f5f7f4;
+            --fpl-border: #dfe6e1;
+            --fpl-green: #087f5b;
+            --fpl-green-soft: #e8f5ef;
+        }
+        .stApp {background: var(--fpl-canvas); color: var(--fpl-ink);}
+        .block-container {
+            max-width: 1180px;
+            padding-top: 3.5rem;
+            padding-bottom: 4rem;
+        }
+        h1, h2, h3 {color: var(--fpl-ink); letter-spacing: -0.025em;}
+        h1 {font-size: clamp(2rem, 3vw, 2.75rem) !important; margin-bottom: 0.15rem !important;}
+        [data-testid="stCaptionContainer"] {color: var(--fpl-muted);}
+        [data-testid="stMetric"] {
+            background: var(--fpl-surface);
+            border: 1px solid var(--fpl-border);
+            border-radius: 0.9rem;
+            padding: 1rem 1.1rem;
+            box-shadow: 0 1px 2px rgba(20, 36, 28, 0.03);
+        }
+        [data-testid="stMetricLabel"] {color: var(--fpl-muted);}
+        [data-testid="stMetricValue"] {color: var(--fpl-ink);}
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background: var(--fpl-surface);
+            border-color: var(--fpl-border) !important;
+            border-radius: 1rem;
+        }
+        [data-testid="stSidebar"] {
+            background: #fbfcfa;
+            border-right: 1px solid var(--fpl-border);
+        }
+        [data-testid="stSidebarNav"] {display: none;}
+        [data-testid="stSidebar"] .block-container {padding-top: 1.25rem;}
+        [data-testid="stSidebar"] hr {margin: 0.85rem 0;}
+        [data-testid="stSidebar"] [data-testid="stPageLink"] a {
+            border-radius: 0.6rem;
+            padding: 0.42rem 0.55rem;
+            text-decoration: none;
+        }
+        [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover {
+            background: var(--fpl-green-soft);
+            color: var(--fpl-green);
+        }
+        .fpl-brand {font-size: 1.12rem; font-weight: 750; color: var(--fpl-ink);}
+        .fpl-kicker {
+            color: var(--fpl-green);
+            font-size: 0.75rem;
+            font-weight: 750;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        .fpl-nav-label {
+            color: var(--fpl-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0.8rem 0 0.25rem;
+        }
+        .freshness {color: var(--fpl-muted); font-size: 0.82rem;}
+        div.stButton > button[kind="primary"] {font-weight: 700;}
+        div[data-baseweb="tab-list"] {gap: 0.25rem;}
+        div[data-baseweb="tab"] {border-radius: 0.55rem 0.55rem 0 0;}
+        @media (max-width: 700px) {
+            .block-container {padding-top: 3.25rem;}
+            [data-testid="stMetric"] {padding: 0.8rem;}
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -47,7 +122,7 @@ def page_setup(title: str, icon: str) -> AppContainer:
 
 
 def data_sidebar(container: AppContainer) -> None:
-    """Render refresh, freshness, and navigation guidance."""
+    """Render focused navigation with secondary data and model controls."""
 
     with container.database.session() as session:
         repository = FplRepository(session)
@@ -55,62 +130,87 @@ def data_sidebar(container: AppContainer) -> None:
         counts = repository.counts()
         forecast_freshness = ForecastRepository(session).latest_prediction_at()
 
-    st.sidebar.title("FPL Optimizer")
-    if freshness:
-        st.sidebar.caption(f"Data updated {format_timestamp(freshness)}")
-    else:
-        st.sidebar.warning("No FPL data loaded yet")
+    st.sidebar.markdown('<div class="fpl-brand">⚽ FPL Optimizer</div>', unsafe_allow_html=True)
+    st.sidebar.caption("One clear decision for every Gameweek")
 
-    if st.sidebar.button("Refresh FPL data", type="primary", width="stretch"):
-        try:
-            with st.spinner("Refreshing official FPL data…"):
-                report = container.refresh.refresh(force=True)
-            if report.stale:
-                st.sidebar.warning("Live refresh failed; cached data is still available.")
-            else:
-                st.sidebar.success(
-                    f"Loaded {report.players} players and {report.fixtures} fixtures."
-                )
-            for warning in report.warnings:
-                st.sidebar.warning(warning)
-            st.rerun()
-        except Exception as error:
-            st.sidebar.error(f"Refresh could not be completed: {error}")
+    st.sidebar.markdown('<div class="fpl-nav-label">Weekly workflow</div>', unsafe_allow_html=True)
+    st.sidebar.page_link("streamlit_app.py", label="Overview", icon="🏠")
+    st.sidebar.page_link("pages/14_Weekly_Dashboard.py", label="This Week", icon="📋")
+    st.sidebar.page_link("pages/0_My_Team.py", label="My Team", icon="⚽")
+    st.sidebar.page_link("pages/7_Transfers.py", label="Transfers", icon="🔁")
+    st.sidebar.page_link("pages/8_Planner.py", label="Future Plan", icon="🗓️")
 
-    if counts["players"]:
-        st.sidebar.caption(
-            f"{counts['players']} players · {counts['teams']} teams · {counts['fixtures']} fixtures"
-        )
-        if forecast_freshness:
-            st.sidebar.caption(f"Forecasted {format_timestamp(forecast_freshness)}")
-        if st.sidebar.button("Generate advanced forecasts", width="stretch"):
-            try:
-                with st.spinner("Projecting advanced xPts for the next six Gameweeks…"):
-                    report = container.forecast.run(horizon=6)
-                st.sidebar.success(
-                    f"Generated {report.forecasts:,} projections with model {report.model_version}."
-                )
-                st.rerun()
-            except Exception as error:
-                st.sidebar.error(f"Forecasting could not be completed: {error}")
-        st.sidebar.subheader("Forecast model")
-        st.sidebar.slider(
-            "Market influence",
-            min_value=0,
-            max_value=100,
-            value=30,
-            step=5,
-            key="market_influence",
-            help=("Blends statistical and market xPts. It does not change strategy preferences."),
-        )
+    with st.sidebar.expander("Explore players & fixtures"):
+        st.page_link("pages/1_Players.py", label="Players", icon="👤")
+        st.page_link("pages/2_Fixtures.py", label="Fixtures", icon="📅")
+        st.page_link("pages/3_Forecasts.py", label="Forecasts", icon="📈")
+        st.page_link("pages/13_Player_Analytics.py", label="Player Analytics", icon="🔎")
+
+    with st.sidebar.expander("Advanced tools"):
+        st.page_link("pages/5_Strategy.py", label="Strategy", icon="🎛️")
+        st.page_link("pages/6_Optimizer.py", label="Build a Squad", icon="🧮")
+        st.page_link("pages/9_Simulation.py", label="Simulation", icon="🎲")
+        st.page_link("pages/10_Chips.py", label="Chips", icon="🃏")
+        st.page_link("pages/16_What_If.py", label="What If", icon="🧭")
+        st.page_link("pages/4_Markets.py", label="Markets", icon="📊")
+        st.page_link("pages/11_Backtesting.py", label="Backtesting", icon="🧪")
+        st.page_link("pages/15_Model_Lab.py", label="Model Lab", icon="🔬")
+        st.page_link("pages/12_Data_Sources.py", label="Data Sources", icon="🔌")
+
     st.sidebar.divider()
     active_strategy = active_strategy_profile()
     st.sidebar.caption(
-        f"Strategy: {active_strategy.preset} · {active_strategy.horizon}GW · "
-        f"{active_strategy.mode.title()}"
+        f"**{active_strategy.preset}** strategy · {active_strategy.horizon}GW horizon"
     )
-    st.sidebar.divider()
-    st.sidebar.caption("Live team import · Live odds · Historical calibration")
+
+    with st.sidebar.expander("Data & model settings"):
+        if freshness:
+            st.caption(f"FPL data · {format_timestamp(freshness)}")
+        else:
+            st.warning("No FPL data loaded yet")
+        if counts["players"]:
+            st.caption(
+                f"{counts['players']} players · {counts['teams']} teams · "
+                f"{counts['fixtures']} fixtures"
+            )
+            if forecast_freshness:
+                st.caption(f"Forecasts · {format_timestamp(forecast_freshness)}")
+
+        if st.button("Refresh FPL data", width="stretch", key="sidebar_refresh_data"):
+            try:
+                with st.spinner("Refreshing official FPL data…"):
+                    report = container.refresh.refresh(force=True)
+                if report.stale:
+                    st.warning("Live refresh failed; cached data is still available.")
+                else:
+                    st.success(f"Loaded {report.players} players and {report.fixtures} fixtures.")
+                for warning in report.warnings:
+                    st.warning(warning)
+                st.rerun()
+            except Exception as error:
+                st.error(f"Refresh could not be completed: {error}")
+
+        if counts["players"] and st.button(
+            "Regenerate forecasts", width="stretch", key="sidebar_generate_forecasts"
+        ):
+            try:
+                with st.spinner("Projecting the next six Gameweeks…"):
+                    report = container.forecast.run(horizon=6)
+                st.success(f"Generated {report.forecasts:,} projections.")
+                st.rerun()
+            except Exception as error:
+                st.error(f"Forecasting could not be completed: {error}")
+
+        if counts["players"]:
+            st.slider(
+                "Market influence",
+                min_value=0,
+                max_value=100,
+                value=30,
+                step=5,
+                key="market_influence",
+                help="Blends statistical and market xPts.",
+            )
 
 
 def format_timestamp(value: datetime) -> str:

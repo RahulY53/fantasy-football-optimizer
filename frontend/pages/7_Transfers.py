@@ -9,8 +9,9 @@ import streamlit as st
 from shared import active_strategy_profile, market_weight, page_setup
 
 container = page_setup("Transfers", "🔁")
-st.title("Transfer planner")
-st.caption("Compare rolling with the best legal one- and two-transfer plans")
+st.markdown('<div class="fpl-kicker">Squad moves</div>', unsafe_allow_html=True)
+st.title("Transfers")
+st.caption("Compare rolling with the best affordable one- and two-transfer options.")
 
 team = container.team.get()
 if team is None:
@@ -26,23 +27,23 @@ context_cols[1].metric("Free transfers", team.free_transfers)
 context_cols[2].metric("Strategy", base_profile.preset)
 context_cols[3].metric("Market influence", f"{blend:.0%}")
 
-st.subheader("Decision settings")
-control_cols = st.columns(2)
-horizon = control_cols[0].slider(
-    "Planning horizon",
-    min_value=1,
-    max_value=6,
-    value=base_profile.horizon,
-    format="%d Gameweeks",
-    help="Compares each full squad's projected points over this many Gameweeks.",
-)
-reluctance = control_cols[1].slider(
-    "Transfer reluctance",
-    min_value=0,
-    max_value=100,
-    value=base_profile.transfer_reluctance,
-    help="Higher values require a larger projected gain before spending a free transfer.",
-)
+with st.expander("Fine-tune this recommendation"):
+    control_cols = st.columns(2)
+    horizon = control_cols[0].slider(
+        "Planning horizon",
+        min_value=1,
+        max_value=6,
+        value=base_profile.horizon,
+        format="%d Gameweeks",
+        help="Compares each full squad's projected points over this many Gameweeks.",
+    )
+    reluctance = control_cols[1].slider(
+        "Transfer reluctance",
+        min_value=0,
+        max_value=100,
+        value=base_profile.transfer_reluctance,
+        help="Higher values require a larger projected gain before spending a free transfer.",
+    )
 profile = replace(base_profile, horizon=horizon, transfer_reluctance=reluctance)
 
 team_signature = (
@@ -55,7 +56,7 @@ team_signature = (
 )
 signature = (team_signature, asdict(profile), blend)
 
-if st.button("Evaluate roll and transfers", type="primary"):
+if st.button("Find my best transfer decision", type="primary", width="stretch"):
     try:
         with st.spinner("Solving the best legal transfer alternatives…"):
             report = container.transfers.run(profile, blend)
@@ -71,8 +72,10 @@ if isinstance(stored, dict) and stored.get("signature") == signature:
     report = stored["report"]
     evaluation = report.evaluation
     labels = {0: "ROLL TRANSFER", 1: "MAKE 1 TRANSFER", 2: "MAKE 2 TRANSFERS"}
-    st.success(f"Recommendation: {labels[evaluation.recommended_transfers]}")
-    st.write(evaluation.rationale)
+    with st.container(border=True):
+        st.markdown("### Recommended action")
+        st.markdown(f"## {labels[evaluation.recommended_transfers]}")
+        st.write(evaluation.rationale)
 
     summary_cols = st.columns(4)
     summary_cols[0].metric(
