@@ -30,6 +30,12 @@ from fpl_optimizer.domain.team import (
 )
 
 
+def _usable_team_price(stored_tenths: int, current_tenths: int) -> float:
+    """Fall back to the official current price for legacy zero-price imports."""
+
+    return (stored_tenths if stored_tenths > 0 else current_tenths) / 10
+
+
 class CurrentTeamRepository:
     """Create, replace, and read one named local current team."""
 
@@ -123,8 +129,12 @@ class CurrentTeamRepository:
                 ),
                 position=player.position,
                 team=team.short_name,
-                purchase_price=membership.purchase_price_tenths / 10,
-                selling_price=membership.selling_price_tenths / 10,
+                purchase_price=_usable_team_price(
+                    membership.purchase_price_tenths, snapshot.price_tenths
+                ),
+                selling_price=_usable_team_price(
+                    membership.selling_price_tenths, snapshot.price_tenths
+                ),
                 current_price=snapshot.price_tenths / 10,
             )
             for membership, player, team, snapshot in self.session.execute(statement)

@@ -359,7 +359,7 @@ def _pair_transfers(
                     in_team=bought.team,
                     buy_price=bought.buy_price,
                     position=position,
-                    bank_change=bought.buy_price - sold.selling_price,
+                    bank_change=sold.selling_price - bought.buy_price,
                 )
             )
     return tuple(moves)

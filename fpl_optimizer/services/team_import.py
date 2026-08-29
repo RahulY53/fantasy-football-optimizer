@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from fpl_optimizer.data.fpl.team_service import PublicFplTeamService
 from fpl_optimizer.database.base import Database
-from fpl_optimizer.database.models import Player
+from fpl_optimizer.database.models import Player, PlayerSnapshot
 from fpl_optimizer.database.team_repository import CurrentTeamRepository
 from fpl_optimizer.domain.team import (
     PublishedSquadPlayer,
@@ -43,6 +43,27 @@ class TeamImportService:
                 row.fpl_id: row.id
                 for row in session.scalars(select(Player).where(Player.fpl_id.in_(element_ids)))
             }
+            latest = (
+                select(
+                    PlayerSnapshot.player_id,
+                    func.max(PlayerSnapshot.observed_at).label("observed_at"),
+                )
+                .group_by(PlayerSnapshot.player_id)
+                .subquery()
+            )
+            current_prices = {
+                fpl_id: price_tenths / 10
+                for fpl_id, price_tenths in session.execute(
+                    select(Player.fpl_id, PlayerSnapshot.price_tenths)
+                    .join(PlayerSnapshot, PlayerSnapshot.player_id == Player.id)
+                    .join(
+                        latest,
+                        (latest.c.player_id == PlayerSnapshot.player_id)
+                        & (latest.c.observed_at == PlayerSnapshot.observed_at),
+                    )
+                    .where(Player.fpl_id.in_(element_ids))
+                )
+            }
         missing = sorted(set(element_ids) - players.keys())
         if missing:
             raise ValueError(
@@ -50,7 +71,9 @@ class TeamImportService:
                 + ", ".join(map(str, missing))
             )
         imported = _build_import(
-            payload, team_id, tuple(_map_pick(row, players) for row in pick_rows)
+            payload,
+            team_id,
+            tuple(_map_pick(row, players, current_prices) for row in pick_rows),
         )
         with self.database.session() as session:
             CurrentTeamRepository(session).save_published_import(imported)
@@ -66,17 +89,44 @@ class TeamImportService:
             return CurrentTeamRepository(session).published_summary()
 
 
-def _map_pick(row: dict[str, Any], players: dict[int, int]) -> PublishedSquadPlayer:
+def _map_pick(
+    row: dict[str, Any],
+    players: dict[int, int],
+    current_prices: dict[int, float],
+) -> PublishedSquadPlayer:
+    fpl_id = int(row["element"])
+    current_price = current_prices.get(fpl_id)
     position = int(row.get("position") or 0)
     return PublishedSquadPlayer(
-        player_id=players[int(row["element"])],
-        purchase_price=float(row.get("purchase_price") or row.get("selling_price") or 0) / 10,
-        selling_price=float(row.get("selling_price") or row.get("purchase_price") or 0) / 10,
+        player_id=players[fpl_id],
+        purchase_price=_pick_price(row, "purchase_price", "selling_price", current_price, fpl_id),
+        selling_price=_pick_price(row, "selling_price", "purchase_price", current_price, fpl_id),
         pick_position=position,
         is_starting=position <= 11,
         bench_order=position - 11 if position > 11 else None,
         is_captain=bool(row.get("is_captain")),
         is_vice_captain=bool(row.get("is_vice_captain")),
+    )
+
+
+def _pick_price(
+    row: dict[str, Any],
+    preferred: str,
+    alternate: str,
+    current_price: float | None,
+    fpl_id: int,
+) -> float:
+    """Resolve an FPL tenths price without persisting an unusable zero."""
+
+    for field in (preferred, alternate):
+        raw = row.get(field)
+        if raw is not None and float(raw) > 0:
+            return float(raw) / 10
+    if current_price is not None and current_price > 0:
+        return current_price
+    raise ValueError(
+        f"FPL did not provide a usable price for player {fpl_id}; refresh official data "
+        "and import the team again"
     )
 
 

@@ -250,7 +250,7 @@ def _pair_moves(
                     in_team=bought.team,
                     buy_price=bought.buy_price,
                     position=position,
-                    budget_change=bought.buy_price - selling_price,
+                    budget_change=selling_price - bought.buy_price,
                     horizon_xpts_gain=bought.horizon_xpts - sold.horizon_xpts,
                 )
             )

@@ -6,7 +6,8 @@ from datetime import UTC, datetime
 
 from fpl_optimizer.database.base import Database
 from fpl_optimizer.database.models import DataSnapshot, Player, Team
-from fpl_optimizer.services.team_import import TeamImportService
+from fpl_optimizer.database.team_repository import _usable_team_price
+from fpl_optimizer.services.team_import import TeamImportService, _pick_price
 
 
 class _PublicService:
@@ -131,3 +132,21 @@ def test_preseason_import_persists_valid_team_id_without_a_fake_squad(tmp_path) 
     assert summary.starting_ids == ()
     assert summary.data_status == "Awaiting first published squad"
     database.engine.dispose()
+
+
+def test_missing_pick_price_falls_back_to_positive_current_price() -> None:
+    assert _pick_price({}, "selling_price", "purchase_price", 6.7, 42) == 6.7
+
+
+def test_missing_pick_price_never_persists_zero() -> None:
+    try:
+        _pick_price({}, "selling_price", "purchase_price", None, 42)
+    except ValueError as error:
+        assert "did not provide a usable price" in str(error)
+    else:
+        raise AssertionError("A missing FPL price must be rejected")
+
+
+def test_legacy_zero_team_price_uses_current_official_price() -> None:
+    assert _usable_team_price(0, 67) == 6.7
+    assert _usable_team_price(65, 67) == 6.5

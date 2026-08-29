@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from fpl_optimizer.domain.transfers import TransferCandidate
@@ -83,6 +85,25 @@ def test_transfer_reluctance_can_make_roll_the_best_decision() -> None:
     assert result.recommendation == "ROLL TRANSFER"
     assert result.recommended_transfers == 0
     assert "flexibility" in result.rationale
+
+
+def test_cheaper_transfer_reports_positive_bank_change() -> None:
+    candidates = [
+        replace(player, buy_price=4.0) if not player.is_current else player
+        for player in transfer_pool()
+    ]
+    result = evaluate_transfers(
+        candidates,
+        bank=0.0,
+        free_transfers=1,
+        transfer_reluctance=0,
+        horizon=3,
+        max_transfers=1,
+    )
+
+    move = result.plans[1].moves[0]
+    assert move.budget_change == pytest.approx(1.0)
+    assert result.plans[1].ending_bank == pytest.approx(1.0)
 
 
 def test_transfer_optimizer_validates_current_squad_and_transfer_limit() -> None:
